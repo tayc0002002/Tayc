@@ -38,78 +38,9 @@ const cleanTempFolderIfLarge = () => {
 
 setInterval(cleanTempFolderIfLarge, 60 * 1000);
 
-// Sauvegarde des messages
-async function storeMessage(message) {
-    try {
-        const config = GETSETTINGS();
-        if (config.antidelete === "off") return;
-        if (!message.key?.id) return;
 
-        const messageId = message.key.id;
-        const sender = message.key.participant || message.key.remoteJid;
 
-        let content = '';
-        let mediaType = '';
-        let mediaPath = '';
 
-        const m = message.message;
-
-        if (m?.conversation) {
-            content = m.conversation;
-        } else if (m?.extendedTextMessage?.text) {
-            content = m.extendedTextMessage.text;
-        }
-
-        const mediaHandlers = [
-            { type: 'imageMessage', ext: '.jpg', mimeFolder: 'image' },
-            { type: 'videoMessage', ext: '.mp4', mimeFolder: 'video' },
-            { type: 'audioMessage', ext: '.mp3', mimeFolder: 'audio' },
-            {
-                type: 'documentMessage',
-                ext: () => {
-                    const filename = m.documentMessage?.fileName || '';
-                    const dotExt = path.extname(filename);
-                    return dotExt || '.bin';
-                },
-                mimeFolder: 'document'
-            },
-            { type: 'stickerMessage', ext: '.webp', mimeFolder: 'sticker' }
-        ];
-
-        for (const handler of mediaHandlers) {
-            if (m?.[handler.type]) {
-                mediaType = handler.type.replace('Message', '');
-                const ext = typeof handler.ext === 'function' ? handler.ext() : handler.ext;
-
-                const stream = await downloadContentFromMessage(m[handler.type], handler.mimeFolder);
-                const chunks = [];
-                for await (const chunk of stream) chunks.push(chunk);
-                const buffer = Buffer.concat(chunks);
-
-                mediaPath = getMediaPath(messageId, ext);
-                await writeFile(mediaPath, buffer);
-
-                if (m[handler.type]?.caption && !content) {
-                    content = m[handler.type].caption;
-                }
-                break;
-            }
-        }
-
-        messageStore.set(messageId, {
-            content,
-            mediaType,
-            mediaPath,
-            sender,
-            group: message.key.remoteJid.endsWith('@g.us') ? message.key.remoteJid : null,
-            timestamp: new Date().toISOString(),
-            rawMessage: message // ajouté ici pour pouvoir reply au message supprimé
-        });
-
-    } catch (err) {
-        console.error('storeMessage error:', err);
-    }
-}
 
 // Gestion des suppressions
 async function handleMessageRevocation(sock, revocationMessage) {
@@ -227,5 +158,4 @@ async function handleMessageRevocation(sock, revocationMessage) {
 
 module.exports = {
     handleMessageRevocation,
-    storeMessage
 };

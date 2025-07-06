@@ -2,7 +2,7 @@
     "chat": [],
     "settings": {
         "prefix": ".",
-        "chatbot": "off",
+        "chatbot": "on",
         "mode": "public",
         "antidelete": "off",
         "autoviewstatus": true,

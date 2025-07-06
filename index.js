@@ -154,7 +154,7 @@ async function startTaycInc() {
             try {
                 await handleMessages(TaycInc, chatUpdate, true)
             } catch (err) {
-                console.error("Error in handleMessages:", err)
+                console.error("Error in handleMessage:", err)
                 // Only try to send error message if we have a valid chatId
                 if (mek.key && mek.key.remoteJid) {
                     await TaycInc.sendMessage(mek.key.remoteJid, {
@@ -270,7 +270,7 @@ async function startTaycInc() {
             });
 
             await delay(1999)
-            console.log(chalk.yellow(`\n\n                  ${chalk.bold.blue(`[ ${global.botname || 'BWB XMD'} ]`)}\n\n`))
+            console.log(chalk.yellow(`\n\n                  ${chalk.bold.blue(`[ ${global.botname || 'Tayc MD'} ]`)}\n\n`))
             console.log(chalk.cyan(`< ================================================== >`))
             console.log(chalk.magenta(`\n${global.themeemoji || '•'} YT CHANNEL: PRINCE TECH`))
             console.log(chalk.magenta(`${global.themeemoji || '•'} GITHUB: peincetech-bwb`))
@@ -305,6 +305,11 @@ async function startTaycInc() {
 
     return TaycInc
 }
+
+
+
+
+
 
 
 // Start the bot with error handling

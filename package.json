@@ -5,7 +5,7 @@
   "main": "index.js",
   "scripts": {
     "start": "node index.js",
-    "test": "echo \"Error: no test specified\" && exit 1",
+    "dev": "nodemon index.js",
     "docker:build": "docker build -t knightbot .",
     "docker:run": "docker run -e SESSION_ID=$SESSION_ID Bwbbot"
   },

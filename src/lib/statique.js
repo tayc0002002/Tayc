@@ -2,8 +2,6 @@ const chalk = require('chalk');
 const PhoneNumber = require('awesome-phonenumber');
 
 function logMessage(sock, msg) {
-    console.log("called logMessage");
-    
     if (!msg || !msg.message) return;
 
     const messageType = Object.keys(msg.message)[0];
@@ -17,16 +15,16 @@ function logMessage(sock, msg) {
     const timestamp = new Date(Number(msg.messageTimestamp) * 1000);
 
     // ✅ Centrage automatique du titre dans une ligne
-    const botName = 'BWB BOT';
+    const botName = 'TAYC MD';
     const fullLineLength = 50;
     const decoratedName = `『 ${botName} 』`;
     const remaining = fullLineLength - decoratedName.length;
-    const side = '━'.repeat(Math.floor(remaining / 2));
-    const header = chalk.hex('#FFAA00')(side + decoratedName + side);
+    const side = "\t\t†"+'━'.repeat(Math.floor(remaining / 2));
+    const header = chalk.hex('#FFAA00')(side + decoratedName + side.replace("†","").replace("\t\t","").concat("╮"));
 
     // Libellé stylisé
-    const label = (txt) => chalk.green.bold(`» ${txt.padEnd(14)}: `);
-    const footer = chalk.hex('#FF00FF')('╰' + '━'.repeat(fullLineLength) + '╯');
+    const label = (txt) => chalk.green.bold(`\t\t» ${txt.padEnd(14)}: `);
+    const footer = chalk.hex('#FF00FF')('\t\t╰' + '━'.repeat(fullLineLength) + '╯');
 
     const fields = [
         `${label('Sent Time')}${chalk.white(timestamp.toLocaleString('en-GB', { weekday: 'long', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }))} EAT`,
