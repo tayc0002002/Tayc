@@ -1,5 +1,4 @@
 require('./config.js');
-const { isBanned } = require('./lib/isBanned');
 const { fetchBuffer, GETSETTINGS } = require('./lib/myfunc');
 const fs = require('fs');
 
@@ -146,7 +145,7 @@ async function handleMessages(Tayc, messageUpdate, printLog) {
         const message = messages[0];
 
         if (!message?.message) return;
- const prefix=settings.prefix || '.'
+        const prefix = settings.prefix || '.'
         const Layout = {
             isGroup: message.key.remoteJid.endsWith('@g.us'),
             botNumber: Tayc.user.id,
@@ -161,7 +160,7 @@ async function handleMessages(Tayc, messageUpdate, printLog) {
         logMessage(Tayc, message);
         // Store message for antidelete feature
         if (message.message) {
-           await storeMessage(message, Tayc.user.id === Tayc.user.id);
+            await storeMessage(message, Tayc.user.id === Tayc.user.id);
         }
 
         // Handle message revocation
@@ -189,37 +188,11 @@ async function handleMessages(Tayc, messageUpdate, printLog) {
             message.message?.videoMessage?.caption?.trim() ||
             '';
 
-        // Only log command usage
-        if (userMessage.startsWith('.')) {
-            console.log(`📝 Command used in ${isGroup ? 'group' : 'private'}: ${userMessage}`);
-        }
-
-        // Check if user is banned (skip ban check for unban command)
-        if (isBanned(senderId) && !userMessage.startsWith('.unban')) {
-            // Only respond occasionally to avoid spam
-            if (Math.random() < 0.1) {
-                await Tayc.sendMessage(chatId, {
-                    text: '❌ You are banned from using the bot. Contact an admin to get unbanned.',
-                    ...channelInfo
-                });
-            }
-            return;
-        }
-
         // First check if it's a game move
         if (/^[1-9]$/.test(userMessage) || userMessage.toLowerCase() === 'surrender') {
             await handleTicTacToeMove(Tayc, chatId, senderId, userMessage);
             return;
         }
-
-        /*  // Basic message response in private chat
-          if (!isGroup && (userMessage === 'hi' || userMessage === 'hello' || userMessage === 'bot' || userMessage === 'hlo' || userMessage === 'hey' || userMessage === 'bro')) {
-              await Tayc.sendMessage(chatId, {
-                  text: 'Hi, How can I help you?\nYou can use .menu for more info and commands.',
-                  ...channelInfo
-              });
-              return;
-          } */
 
         if (!message.key.fromMe) incrementMessageCount(chatId, senderId);
 
@@ -838,9 +811,9 @@ async function handleMessages(Tayc, messageUpdate, printLog) {
         }
     } catch (error) {
         console.error('❌ Error in message handler:', error.message);
-            await Tayc.sendMessage(Tayc.user.id, {
-                text: '❌ Failed to handle message❌\n\n' + error,
-            });
+        await Tayc.sendMessage(Tayc.user.id, {
+            text: '❌ Failed to handle message❌\n\n' + error,
+        });
     }
 }
 
@@ -958,12 +931,12 @@ function getMediaPath(messageId, ext) {
 // Sauvegarde des messages
 async function storeMessage(message, isUser) {
     try {
-        
+
         const config = GETSETTINGS();
-        
+
         if (config.antidelete === "off") return;
         if (!message.key?.id) return;
- 
+
         const messageId = message.key.id;
         const sender = message.key.participant || message.key.remoteJid;
 
@@ -1025,7 +998,8 @@ async function storeMessage(message, isUser) {
             rawMessage: message // ajouté ici pour pouvoir reply au message supprimé
         });
 
-        if (config.chatbot === "on" && m?.conversation) {
+        const canSave = !["newsletter", "broadcast"].includes(message.key.remoteJid)
+        if (config.chatbot === "on" && m?.conversation && canSave) {
             addToGlobalHistory(message.key.remoteJid, isUser ? "bot" : "client", content)
         }
 
