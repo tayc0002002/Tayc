@@ -1,7 +1,5 @@
 const fs = require('fs');
 const path = require('path');
-const { downloadContentFromMessage } = require('@whiskeysockets/baileys');
-const { writeFile } = require('fs/promises');
 const { GETSETTINGS, getFolderSizeInMB } = require('../lib/myfunc');
 
 const messageStore = new Map();
@@ -12,13 +10,7 @@ if (!fs.existsSync(TEMP_MEDIA_DIR)) {
     fs.mkdirSync(TEMP_MEDIA_DIR, { recursive: true });
 }
 
-// Créer un dossier daté et retourner un chemin
-function getMediaPath(messageId, ext) {
-    const day = new Date().toISOString().slice(0, 10);
-    const dayDir = path.join(TEMP_MEDIA_DIR, day);
-    if (!fs.existsSync(dayDir)) fs.mkdirSync(dayDir, { recursive: true });
-    return path.join(dayDir, `${messageId}${ext}`);
-}
+
 
 const cleanTempFolderIfLarge = () => {
     try {

@@ -1,15 +1,12 @@
-const settings = require('./settings');
 require('./config.js');
 const { isBanned } = require('./lib/isBanned');
-const yts = require('yt-search');
 const { fetchBuffer, GETSETTINGS } = require('./lib/myfunc');
 const fs = require('fs');
-const fetch = require('node-fetch');
-const ytdl = require('ytdl-core');
+
 const path = require('path');
-const axios = require('axios');
-const ffmpeg = require('fluent-ffmpeg');
+
 const { addWelcome, delWelcome, isWelcomeOn, addGoodbye, delGoodBye, isGoodByeOn } = require('./lib/index');
+const { downloadContentFromMessage } = require('@whiskeysockets/baileys');
 
 // Command imports
 const tagAllCommand = require('./commands/tagall');
@@ -94,9 +91,13 @@ const { shayariCommand } = require('./commands/shayari');
 const { rosedayCommand } = require('./commands/roseday');
 const imagineCommand = require('./commands/imagine');
 const videoCommand = require('./commands/video');
+
+const TEMP_MEDIA_DIR = path.join(__dirname, './tmp');
+const { writeFile } = require('fs/promises');
 const logMessage = require('./src/lib/statique.js');
 
-const ALL_CHAT_PATH = path.join(__dirname, 'chats.json');
+const messageStore = new Map();
+const ALL_CHAT_PATH = path.join(__dirname, './src/db/chats.json');
 // Add this near the top of main.js with other global configurations
 const channelInfo = {
     contextInfo: {
@@ -137,7 +138,7 @@ function addToGlobalHistory(jid, role, text) {
 
 async function handleMessages(Tayc, messageUpdate, printLog) {
     try {
-        const settings = JSON.parse(fs.readFileSync('./src/db/settings.json', 'utf-8'));
+        const settings = GETSETTINGS();
         const sudoList = settings.sudo || [];
         const { messages, type } = messageUpdate;
         if (type !== 'notify') return;
@@ -145,15 +146,15 @@ async function handleMessages(Tayc, messageUpdate, printLog) {
         const message = messages[0];
 
         if (!message?.message) return;
-
+ const prefix=settings.prefix || '.'
         const Layout = {
             isGroup: message.key.remoteJid.endsWith('@g.us'),
             botNumber: Tayc.user.id,
-            prefix: settings.settings.prefix || '.',
+            prefix,
             isAdmin: sudoList.includes(message.key.remoteJid),
             jid: message.key.remoteJid,
             isBotUser: Tayc.user.id === Tayc.user.id,
-            botMode: settings.settings.mode
+            botMode: settings.mode
         }
 
 
@@ -837,12 +838,9 @@ async function handleMessages(Tayc, messageUpdate, printLog) {
         }
     } catch (error) {
         console.error('❌ Error in message handler:', error.message);
-        // Only try to send error message if we have a valid chatId
-        if (chatId) {
             await Tayc.sendMessage(Tayc.user.id, {
                 text: '❌ Failed to handle message❌\n\n' + error,
             });
-        }
     }
 }
 
@@ -948,15 +946,24 @@ async function handleGroupParticipantUpdate(Tayc, update) {
         console.error('Error in handleGroupParticipantUpdate:', error);
     }
 }
+
+// Créer un dossier daté et retourner un chemin
+function getMediaPath(messageId, ext) {
+    const day = new Date().toISOString().slice(0, 10);
+    const dayDir = path.join(TEMP_MEDIA_DIR, day);
+    if (!fs.existsSync(dayDir)) fs.mkdirSync(dayDir, { recursive: true });
+    return path.join(dayDir, `${messageId}${ext}`);
+}
+
 // Sauvegarde des messages
 async function storeMessage(message, isUser) {
     try {
         
         const config = GETSETTINGS();
+        
         if (config.antidelete === "off") return;
-        // if (!message.key?.id) return;
-        console.log("store message called")
-
+        if (!message.key?.id) return;
+ 
         const messageId = message.key.id;
         const sender = message.key.participant || message.key.remoteJid;
 
@@ -1019,12 +1026,7 @@ async function storeMessage(message, isUser) {
         });
 
         if (config.chatbot === "on" && m?.conversation) {
-            console.log("Saving Message");
-            
             addToGlobalHistory(message.key.remoteJid, isUser ? "bot" : "client", content)
-        }else{
-            console.log("Cannot save message, chatbot is off");
-            
         }
 
     } catch (err) {

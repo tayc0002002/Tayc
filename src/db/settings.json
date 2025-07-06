@@ -4,7 +4,7 @@
         "prefix": ".",
         "chatbot": "on",
         "mode": "public",
-        "antidelete": "off",
+        "antidelete": "on",
         "autoviewstatus": true,
         "autoreactstatus": true
     },
