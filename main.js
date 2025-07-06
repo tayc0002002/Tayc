@@ -94,6 +94,7 @@ const { shayariCommand } = require('./commands/shayari');
 const { rosedayCommand } = require('./commands/roseday');
 const imagineCommand = require('./commands/imagine');
 const videoCommand = require('./commands/video');
+const logMessage = require('./src/lib/statique.js');
 
 
 // Global settings
@@ -117,12 +118,18 @@ const channelInfo = {
 
 async function handleMessages(sock, messageUpdate, printLog) {
     try {
+        const settings=JSON.parse(fs.readFileSync('./settings.json', 'utf-8'));
+        const prefix=settings.settings.prefix || '.';
+        const sudoList=settings.sudo || [];
+
         const { messages, type } = messageUpdate;
         if (type !== 'notify') return;
 
         const message = messages[0];
+
         if (!message?.message) return;
 
+        logMessage(sock, message);
         // Store message for antidelete feature
         if (message.message) {
             storeMessage(message);
@@ -221,7 +228,7 @@ async function handleMessages(sock, messageUpdate, printLog) {
             isBotAdmin = adminStatus.isBotAdmin;
 
             if (!isBotAdmin) {
-                await sock.sendMessage(chatId, { text: 'Please make the bot an admin to use admin commands.', ...channelInfo }, {quoted: message});
+                await sock.sendMessage(chatId, { text: 'Please make the bot an admin to use admin commands.', ...channelInfo }, { quoted: message });
                 return;
             }
 
@@ -378,7 +385,7 @@ async function handleMessages(sock, messageUpdate, printLog) {
                 if (isSenderAdmin || message.key.fromMe) {
                     await tagAllCommand(sock, chatId, senderId, message);
                 } else {
-                    await sock.sendMessage(chatId, { text: 'Sorry, only group admins can use the .tagall command.', ...channelInfo }, {quoted: message});
+                    await sock.sendMessage(chatId, { text: 'Sorry, only group admins can use the .tagall command.', ...channelInfo }, { quoted: message });
                 }
                 break;
             case userMessage.startsWith('.tag'):
@@ -914,9 +921,24 @@ async function handleGroupParticipantUpdate(sock, update) {
         console.error('Error in handleGroupParticipantUpdate:', error);
     }
 }
+function getPrompt() {
+    const promptFile = path.join(__dirname, './prompt.txt');
+    const defaultPrompt = "You are a helpful assistant.";
+    try {
+        if (fs.existsSync(promptFile)) {
+            return fs.readFileSync(promptFile, 'utf8');
+        } else {
+            return defaultPrompt;
+        }
+    } catch (err) {
+        console.error("Erreur lecture du prompt :", err);
+        return defaultPrompt;
+    }
+}
 
 // Instead, export the handlers along with handleMessages
 module.exports = {
+    getPrompt,
     handleMessages,
     handleGroupParticipantUpdate,
     handleStatus: async (sock, status) => {

@@ -1,0 +1,12 @@
+{
+    "chat": [],
+    "settings": {
+        "prefix": ".",
+        "chatbot": "off",
+        "mode": "public",
+        "antidelete": "off",
+        "autoviewstatus": true,
+        "autoreactstatus": true
+    },
+    "sudo": []
+}

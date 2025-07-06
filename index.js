@@ -16,14 +16,14 @@ const chalk = require('chalk')
 const FileType = require('file-type')
 const path = require('path')
 const axios = require('axios')
-const { handleMessages, handleGroupParticipantUpdate, handleStatus } = require('./main');
+const { handleMessages, handleGroupParticipantUpdate, handleStatus, getPrompt } = require('./main');
 const PhoneNumber = require('awesome-phonenumber')
 const { imageToWebp, videoToWebp, writeExifImg, writeExifVid } = require('./lib/exif')
 const { smsg, isUrl, generateMessageTag, getBuffer, getSizeMedia, fetch, await, sleep, reSize } = require('./lib/myfunc')
-const { 
+const {
     default: makeWASocket,
-    useMultiFileAuthState, 
-    DisconnectReason, 
+    useMultiFileAuthState,
+    DisconnectReason,
     fetchLatestBaileysVersion,
     generateForwardMessageContent,
     prepareWAMessageMedia,
@@ -52,7 +52,7 @@ const store = {
     groupMetadata: async (jid) => {
         return {}
     },
-    bind: function(ev) {
+    bind: function (ev) {
         // Handle events
         ev.on('messages.upsert', ({ messages }) => {
             messages.forEach(msg => {
@@ -62,7 +62,7 @@ const store = {
                 }
             })
         })
-        
+
         ev.on('contacts.update', (contacts) => {
             contacts.forEach(contact => {
                 if (contact.id) {
@@ -70,7 +70,7 @@ const store = {
                 }
             })
         })
-        
+
         ev.on('chats.set', (chats) => {
             this.chats = chats
         })
@@ -101,13 +101,13 @@ const question = (text) => {
     }
 }
 
-         
-async function startXeonBotInc() {
+
+async function startTaycInc() {
     let { version, isLatest } = await fetchLatestBaileysVersion()
     const { state, saveCreds } = await useMultiFileAuthState(`./session`)
     const msgRetryCounterCache = new NodeCache()
 
-    const XeonBotInc = makeWASocket({
+    const TaycInc = makeWASocket({
         version,
         logger: pino({ level: 'silent' }),
         printQRInTerminal: !pairingCode,
@@ -127,28 +127,37 @@ async function startXeonBotInc() {
         defaultQueryTimeoutMs: undefined,
     })
 
-    store.bind(XeonBotInc.ev)
+    store.bind(TaycInc.ev)
 
     // Message handling
-    XeonBotInc.ev.on('messages.upsert', async chatUpdate => {
+    // TaycInc.ev.on('messages.upsert', async (m) => {
+    //     if (m.messages[0].key && m.messages[0].key.remoteJid === 'status@broadcast') {
+    //         await handleStatus(TaycInc, m);
+    //     }
+    // });
+
+    TaycInc.ev.on('messages.upsert', async (chatUpdate) => {
+        const prompt = getPrompt();
         try {
             const mek = chatUpdate.messages[0]
             if (!mek.message) return
             mek.message = (Object.keys(mek.message)[0] === 'ephemeralMessage') ? mek.message.ephemeralMessage.message : mek.message
+
             if (mek.key && mek.key.remoteJid === 'status@broadcast') {
-                await handleStatus(XeonBotInc, chatUpdate);
+                await handleStatus(TaycInc, chatUpdate);
                 return;
             }
-            if (!XeonBotInc.public && !mek.key.fromMe && chatUpdate.type === 'notify') return
+
+            if (!TaycInc.public && !mek.key.fromMe && chatUpdate.type === 'notify') return
             if (mek.key.id.startsWith('BAE5') && mek.key.id.length === 16) return
-            
+
             try {
-                await handleMessages(XeonBotInc, chatUpdate, true)
+                await handleMessages(TaycInc, chatUpdate, true)
             } catch (err) {
                 console.error("Error in handleMessages:", err)
                 // Only try to send error message if we have a valid chatId
                 if (mek.key && mek.key.remoteJid) {
-                    await XeonBotInc.sendMessage(mek.key.remoteJid, { 
+                    await TaycInc.sendMessage(mek.key.remoteJid, {
                         text: '❌ An error occurred while processing your message.',
                         contextInfo: {
                             forwardingScore: 1,
@@ -168,7 +177,7 @@ async function startXeonBotInc() {
     })
 
     // Add these event handlers for better functionality
-    XeonBotInc.decodeJid = (jid) => {
+    TaycInc.decodeJid = (jid) => {
         if (!jid) return jid
         if (/:\d+@/gi.test(jid)) {
             let decode = jidDecode(jid) || {}
@@ -176,37 +185,37 @@ async function startXeonBotInc() {
         } else return jid
     }
 
-    XeonBotInc.ev.on('contacts.update', update => {
+    TaycInc.ev.on('contacts.update', update => {
         for (let contact of update) {
-            let id = XeonBotInc.decodeJid(contact.id)
+            let id = TaycInc.decodeJid(contact.id)
             if (store && store.contacts) store.contacts[id] = { id, name: contact.notify }
         }
     })
 
-    XeonBotInc.getName = (jid, withoutContact = false) => {
-        id = XeonBotInc.decodeJid(jid)
-        withoutContact = XeonBotInc.withoutContact || withoutContact 
+    TaycInc.getName = (jid, withoutContact = false) => {
+        id = TaycInc.decodeJid(jid)
+        withoutContact = TaycInc.withoutContact || withoutContact
         let v
         if (id.endsWith("@g.us")) return new Promise(async (resolve) => {
             v = store.contacts[id] || {}
-            if (!(v.name || v.subject)) v = XeonBotInc.groupMetadata(id) || {}
+            if (!(v.name || v.subject)) v = TaycInc.groupMetadata(id) || {}
             resolve(v.name || v.subject || PhoneNumber('+' + id.replace('@s.whatsapp.net', '')).getNumber('international'))
         })
         else v = id === '0@s.whatsapp.net' ? {
             id,
             name: 'WhatsApp'
-        } : id === XeonBotInc.decodeJid(XeonBotInc.user.id) ?
-            XeonBotInc.user :
+        } : id === TaycInc.decodeJid(TaycInc.user.id) ?
+            TaycInc.user :
             (store.contacts[id] || {})
         return (withoutContact ? '' : v.name) || v.subject || v.verifiedName || PhoneNumber('+' + jid.replace('@s.whatsapp.net', '')).getNumber('international')
     }
 
-    XeonBotInc.public = true
+    TaycInc.public = true
 
-    XeonBotInc.serializeM = (m) => smsg(XeonBotInc, m, store)
+    TaycInc.serializeM = (m) => smsg(TaycInc, m, store)
 
     // Handle pairing code
-    if (pairingCode && !XeonBotInc.authState.creds.registered) {
+    if (pairingCode && !TaycInc.authState.creds.registered) {
         if (useMobile) throw new Error('Cannot use pairing code with mobile api')
 
         let phoneNumber
@@ -228,10 +237,9 @@ async function startXeonBotInc() {
 
         setTimeout(async () => {
             try {
-                let code = await XeonBotInc.requestPairingCode(phoneNumber)
+                let code = await TaycInc.requestPairingCode(phoneNumber)
                 code = code?.match(/.{1,4}/g)?.join("-") || code
                 console.log(chalk.black(chalk.bgGreen(`Your Pairing Code : `)), chalk.black(chalk.white(code)))
-                console.log(chalk.yellow(`\nPlease enter this code in your WhatsApp app:\n1. Open WhatsApp\n2. Go to Settings > Linked Devices\n3. Tap "Link a Device"\n4. Enter the code shown above`))
             } catch (error) {
                 console.error('Error requesting pairing code:', error)
                 console.log(chalk.red('Failed to get pairing code. Please check your phone number and try again.'))
@@ -240,14 +248,14 @@ async function startXeonBotInc() {
     }
 
     // Connection handling
-    XeonBotInc.ev.on('connection.update', async (s) => {
+    TaycInc.ev.on('connection.update', async (s) => {
         const { connection, lastDisconnect } = s
         if (connection == "open") {
             console.log(chalk.magenta(` `))
-            console.log(chalk.yellow(`🌿Connected to => ` + JSON.stringify(XeonBotInc.user, null, 2)))
-            
-            const botNumber = XeonBotInc.user.id.split(':')[0] + '@s.whatsapp.net';
-            await XeonBotInc.sendMessage(botNumber, { 
+            console.log(chalk.yellow(`🌿Connected to => ` + JSON.stringify(TaycInc.user, null, 2)))
+
+            const botNumber = TaycInc.user.id.split(':')[0] + '@s.whatsapp.net';
+            await TaycInc.sendMessage(botNumber, {
                 text: `🤖 Bot Connected Successfully!\n\n⏰ Time: ${new Date().toLocaleString()}\n✅ Status: Online and Ready!
                 \n✅Make sure to join below channel`,
                 contextInfo: {
@@ -276,36 +284,31 @@ async function startXeonBotInc() {
             lastDisconnect.error &&
             lastDisconnect.error.output.statusCode != 401
         ) {
-            startXeonBotInc()
+            startTaycInc()
         }
     })
 
-    XeonBotInc.ev.on('creds.update', saveCreds)
-    
-    XeonBotInc.ev.on('group-participants.update', async (update) => {
-        await handleGroupParticipantUpdate(XeonBotInc, update);
+    TaycInc.ev.on('creds.update', saveCreds)
+
+    TaycInc.ev.on('group-participants.update', async (update) => {
+        await handleGroupParticipantUpdate(TaycInc, update);
     });
 
-    XeonBotInc.ev.on('messages.upsert', async (m) => {
-        if (m.messages[0].key && m.messages[0].key.remoteJid === 'status@broadcast') {
-            await handleStatus(XeonBotInc, m);
-        }
+
+    TaycInc.ev.on('status.update', async (status) => {
+        await handleStatus(TaycInc, status);
     });
 
-    XeonBotInc.ev.on('status.update', async (status) => {
-        await handleStatus(XeonBotInc, status);
+    TaycInc.ev.on('messages.reaction', async (status) => {
+        await handleStatus(TaycInc, status);
     });
 
-    XeonBotInc.ev.on('messages.reaction', async (status) => {
-        await handleStatus(XeonBotInc, status);
-    });
-
-    return XeonBotInc
+    return TaycInc
 }
 
 
 // Start the bot with error handling
-startXeonBotInc().catch(error => {
+startTaycInc().catch(error => {
     console.error('Fatal error:', error)
     process.exit(1)
 })
