@@ -1,5 +1,5 @@
 require('./config.js');
-const { fetchBuffer, GETSETTINGS, isAdmin, smsg } = require('./lib/myfunc');
+const { fetchBuffer, GETSETTINGS, isAdmin, smsg, GETPRIVACY, LOADSETTINGS } = require('./lib/myfunc');
 const fs = require('fs');
 
 const path = require('path');
@@ -18,6 +18,7 @@ const chalk = require('chalk');
 const { handleStatusUpdate } = require('./commands/autostatus.js');
 const { handleChatbotResponse } = require('./commands/chatbot.js');
 const { handleBadwordDetection } = require('./lib/antibadword.js');
+const { handleMessageRevocation } = require('./commands/antidelete.js');
 
 const messageStore = new Map();
 const ALL_CHAT_PATH = path.join(__dirname, './src/db/chats.json');
@@ -54,8 +55,8 @@ async function handleMessages(Tayc, messageUpdate) {
         const settings = GETSETTINGS();
         const COMMANDS = getCommands();
         const prefix = settings.prefix;
-        const sudoList = settings.sudo || [];
-
+        const sudoList = GETPRIVACY().sudo || [];
+        const taycMode = settings.mode
         const { messages, type } = messageUpdate;
         if (type !== 'notify' || !messages || messages.length === 0) return;
 
@@ -63,13 +64,14 @@ async function handleMessages(Tayc, messageUpdate) {
         if (!message.message || message.key?.remoteJid?.endsWith("@newsletter")) return;
 
         const m = smsg(Tayc, message);
+
         if (!m || !m.body) return;
 
         const chatId = m.chat;
         const senderJid = m.sender;
         const fromGroup = m.isGroup;
         const botNumber = Tayc.user.id;
-        const isBotAdmin = sudoList.includes(senderJid) || senderJid === botNumber;
+        const isBotAdmin = m.fromMe || sudoList.includes(senderJid);
 
         // === UTILITIES ===
         const reply = (text) => Tayc.sendMessage(chatId, { text }, { quoted: m });
@@ -94,7 +96,7 @@ async function handleMessages(Tayc, messageUpdate) {
         }
 
         // === Chatbot mode ===
-        if (!m.body.startsWith(prefix) && settings.chatbot === "on") {
+        if (!m.body.startsWith(prefix) && !fromGroup && settings.chatbot === "on") {
             await handleChatbotResponse(Tayc, chatId, m, m.body.toLowerCase(), senderJid);
             return;
         }
@@ -125,6 +127,8 @@ async function handleMessages(Tayc, messageUpdate) {
             quotedMessage: m.quoted?.msg || null,
             command: '',
             args: [],
+            text:"",
+            Settings: LOADSETTINGS(),
             full: '',
             raw: message           // original Baileys message
         };
@@ -136,21 +140,25 @@ async function handleMessages(Tayc, messageUpdate) {
             const args = body.split(' ').slice(1);
 
             context.args = args;
-            context.full = body;
+            context.full = body;// full command text
+            context.text=args.join(" ")
             context.command = commandName;
 
             const matched = COMMANDS.find(cmd =>
                 Array.isArray(cmd.command) ? cmd.command.includes(commandName) : cmd.command === commandName
             );
 
-            if (!matched) {
-                await reply(`❌ Unknown command: *${commandName}*`);
-                return;
+            if (!matched) return
+
+            if (taycMode === "private" && !context.isOwner && !context.isBotUser) {
+                react("❌")
+                await reply("*Take Your own access to Take All You Can*")
+                return
             }
 
             if (typeof matched.operate === 'function') {
                 try {
-                    console.log(chalk.gray(`[TAYC-CMD] Executing: ${matched.command}`));
+                    console.log(chalk.gray(`[TAYC-CMD] Executing: ${commandName} in ${matched.__source}`));
                     await matched.operate(context);
                 } catch (err) {
                     console.error(`❌ Error in command "${matched.command}":`, err);

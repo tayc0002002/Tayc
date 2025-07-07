@@ -1,13 +1,15 @@
 {
-    "settings": {
-        "prefix": ".",
-        "chatbot": "on",
-        "mode": "public",
-        "antidelete": "on",
-        "autoviewstatus": true,
-        "autoreactstatus": true
-    },
-    "chat": [],
-    "mess": {},
-    "sudo": []
+  "settings": {
+    "prefix": ".",
+    "chatbot": "off",
+    "mode": "private",
+    "antidelete": "on",
+    "autoviewstatus": true,
+    "autoreactstatus": true
+  },
+  "chat": [],
+  "mess": {
+    "addNewContact": "Salut, moi c'est warano. on s’enregistre?"
+  },
+  "sudo": []
 }
