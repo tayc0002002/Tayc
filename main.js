@@ -64,6 +64,7 @@ async function handleMessages(Tayc, messageUpdate) {
         if (!message.message || message.key?.remoteJid?.endsWith("@newsletter")) return;
 
         const m = smsg(Tayc, message);
+        //  console.log(m);
 
         if (!m || !m.body) return;
 
@@ -76,12 +77,22 @@ async function handleMessages(Tayc, messageUpdate) {
         // === UTILITIES ===
         const reply = (text) => Tayc.sendMessage(chatId, { text }, { quoted: m });
         const sendText = async (text) => await Tayc.sendMessage(chatId, { text });
+        const sendPrivate = async (text, mentions = []) => await Tayc.sendMessage(botNumber, { text }, { mentions })
+
         const react = async (emoji) => await Tayc.sendMessage(chatId, {
             react: { text: emoji, key: m.key }
         });
 
         logMessage(Tayc, m);
+
+        // === Receive contact ===
+        if (["contactMessage", "contactsArrayMessage"].includes(m.mtype)) {
+            await handleContactDetected(Tayc, m, settings.awc, sendPrivate);
+            return;
+        }
+
         await storeMessage(m, m.fromMe);
+
 
         // === Message revoked ===
         if (m.msg?.protocolMessage?.type === 0) {
@@ -95,6 +106,7 @@ async function handleMessages(Tayc, messageUpdate) {
             await Antilink(m, Tayc);
         }
 
+
         // === Chatbot mode ===
         if (!m.body.startsWith(prefix) && !fromGroup && settings.chatbot === "on") {
             await handleChatbotResponse(Tayc, chatId, m, m.body.toLowerCase(), senderJid);
@@ -103,6 +115,7 @@ async function handleMessages(Tayc, messageUpdate) {
 
         // === Build context ===
         const context = {
+            sendPrivate,// Send message private to the bot admin
             Tayc,                  // client instance
             sendText,              // async send text
             reply,                 // reply with quoted
@@ -127,7 +140,7 @@ async function handleMessages(Tayc, messageUpdate) {
             quotedMessage: m.quoted?.msg || null,
             command: '',
             args: [],
-            text:"",
+            text: "",
             Settings: LOADSETTINGS(),
             full: '',
             raw: message           // original Baileys message
@@ -141,7 +154,7 @@ async function handleMessages(Tayc, messageUpdate) {
 
             context.args = args;
             context.full = body;// full command text
-            context.text=args.join(" ")
+            context.text = args.join(" ")
             context.command = commandName;
 
             const matched = COMMANDS.find(cmd =>
@@ -278,6 +291,8 @@ async function handleGroupParticipantUpdate(Tayc, update) {
     }
 }
 
+
+
 // Créer un dossier daté et retourner un chemin
 function getMediaPath(messageId, ext) {
     const day = new Date().toISOString().slice(0, 10);
@@ -379,6 +394,84 @@ function getPrompt() {
     } catch (err) {
         console.error("Erreur lecture du prompt :", err);
         return defaultPrompt;
+    }
+}
+// When receive contact
+async function handleContactDetected(Tayc, m, start, sendPrivate) {
+    if (start !== "on") return;
+
+    console.log(
+        chalk.yellowBright("[CONTACT]"),
+        chalk.blueBright("New contact(s) detected in"),
+        chalk.greenBright(m.chat)
+    );
+
+    const contactsPath = path.join(__dirname, "./src/db/contacts.json");
+    const CONTACTS = fs.existsSync(contactsPath)
+        ? JSON.parse(fs.readFileSync(contactsPath, 'utf-8'))
+        : [];
+
+    const mess = GETPRIVACY()?.mess?.addNewContact || "*Hi 🖖. Save me as Warano*";
+
+    const extractPhoneNumber = (vcard = "") => {
+        const match = vcard.match(/TEL.*:(.+)/);
+        return match ? match[1].replace(/\D/g, "") : null;
+    };
+
+    let rawContacts = [];
+
+    if (m.mtype === "contactMessage" && m.msg.vcard) {
+        rawContacts.push({
+            vcard: m.msg.vcard,
+            displayName: m.msg.displayName || "Unknown"
+        });
+    } else if (m.mtype === "contactsArrayMessage") {
+
+        const arr = m.contacts || [];
+        rawContacts.push(
+            ...arr.map(c => ({
+                vcard: c.vcard || "",
+                displayName: c.displayName || "Unknown"
+            }))
+        );
+    }
+
+    if (rawContacts.length > 10) {
+        sendPrivate("❌ Too many contacts detected. Please limit to 10 contacts at a time.");
+        return;
+    }
+
+    console.log(chalk.cyan(`🔍 Found ${rawContacts.length} contact(s)`));
+
+    let count = 0;
+    const newlySent = [];
+
+    for (const contact of rawContacts) {
+        const number = extractPhoneNumber(contact.vcard);
+        if (!number) continue;
+
+        const jid = `${number}@s.whatsapp.net`;
+        if (CONTACTS.includes(jid)) continue;
+
+        try {
+            await Tayc.sendMessage(jid, { text: mess });
+            CONTACTS.push(jid);
+            count++;
+            newlySent.push({ name: contact.displayName, number, jid });
+        } catch (err) {
+            console.error(`❌ Failed to send to ${jid}:`, err.message);
+        }
+    }
+
+    if (count > 0) {
+        fs.writeFileSync(contactsPath, JSON.stringify(CONTACTS, null, 2));
+        sendPrivate(`✅ Successfully sent add message to *${count}* of *${rawContacts.length}* contact(s).\n
+            *SEND BY:*  @${m.sender.split('@')[0]}\n
+            `.trim(), [...newlySent.map(c => c.jid), m.sender]);
+
+        console.table(newlySent);
+    } else {
+        sendPrivate("ℹ️ No new contact added or messages sent.");
     }
 }
 

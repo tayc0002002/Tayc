@@ -2,6 +2,7 @@
   "settings": {
     "prefix": ".",
     "chatbot": "off",
+    "awc": "on",
     "mode": "private",
     "antidelete": "on",
     "autoviewstatus": true,
