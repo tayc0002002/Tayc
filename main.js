@@ -14,21 +14,14 @@ const TEMP_MEDIA_DIR = path.join(__dirname, './tmp');
 const { writeFile } = require('fs/promises');
 const logMessage = require('./src/lib/statique.js');
 const { getCommands } = require('./src/lib/loader.js');
+const chalk = require('chalk');
+const { handleStatusUpdate } = require('./commands/autostatus.js');
+const { handleChatbotResponse } = require('./commands/chatbot.js');
+const { handleBadwordDetection } = require('./lib/antibadword.js');
 
 const messageStore = new Map();
 const ALL_CHAT_PATH = path.join(__dirname, './src/db/chats.json');
-// Add this near the top of main.js with other global configurations
-const channelInfo = {
-    contextInfo: {
-        forwardingScore: 1,
-        isForwarded: true,
-        forwardedNewsletterMessageInfo: {
-            newsletterJid: '120363398106360290@newsletter',
-            newsletterName: 'BWB XMD',
-            serverMessageId: -1
-        }
-    }
-};
+
 
 function loadAllChats() {
     try {
@@ -56,131 +49,120 @@ function addToGlobalHistory(jid, role, text) {
 }
 
 
-
 async function handleMessages(Tayc, messageUpdate) {
     try {
-        // Loading settings...
         const settings = GETSETTINGS();
-        const COMMANDS = getCommands()
-        const prefix = settings.prefix
+        const COMMANDS = getCommands();
+        const prefix = settings.prefix;
         const sudoList = settings.sudo || [];
 
         const { messages, type } = messageUpdate;
-        if (type !== 'notify') return;
+        if (type !== 'notify' || !messages || messages.length === 0) return;
 
-        // Extract message and sender infos
         const message = messages[0];
-        const key = message.key
-        const from = message.key.remoteJid;
-        const botNumber = Tayc.user.id
-        const fromGroup = from.endsWith('@g.us');
-        const senderJid = fromGroup ? message.key.participant : from;
-        const chatId = message.key.remoteJid;
-        const isGroup = chatId.endsWith('@g.us');
-        let isBotAdmin = sudoList.includes(senderJid) || senderJid === botNumber;
+        if (!message.message || message.key?.remoteJid?.endsWith("@newsletter")) return;
 
-        const quotedMessage = message.message?.extendedTextMessage?.contextInfo?.quotedMessage;
+        const m = smsg(Tayc, message);
+        if (!m || !m.body) return;
 
-        if (!message?.message || (from.endsWith("@newsletter"))) return;
-        const m = smsg(Tayc, messages[0]);
-        // Utils fonctions
-        const reply = (text) => Tayc.sendMessage(chatId, { text }, { quoted: message });
+        const chatId = m.chat;
+        const senderJid = m.sender;
+        const fromGroup = m.isGroup;
+        const botNumber = Tayc.user.id;
+        const isBotAdmin = sudoList.includes(senderJid) || senderJid === botNumber;
+
+        // === UTILITIES ===
+        const reply = (text) => Tayc.sendMessage(chatId, { text }, { quoted: m });
         const sendText = async (text) => await Tayc.sendMessage(chatId, { text });
-        const react = async (text) => await Tayc.sendMessage(from, {
-            react: {
-                text, key
-            }
+        const react = async (emoji) => await Tayc.sendMessage(chatId, {
+            react: { text: emoji, key: m.key }
         });
 
-        // console.log(senderJid, COMMANDS);
+        logMessage(Tayc, m);
+        await storeMessage(m, m.fromMe);
 
-        const userMessage = (
-            message.message?.conversation?.trim() ||
-            message.message?.extendedTextMessage?.text?.trim() ||
-            message.message?.imageMessage?.caption?.trim() ||
-            message.message?.videoMessage?.caption?.trim() ||
-            ''
-        ).toLowerCase().replace(/\.\\s+/g, '.').trim();
-        // Preserve raw message for commands like .tag that need original casing
-        const rawText = message.message?.conversation?.trim() ||
-            message.message?.extendedTextMessage?.text?.trim() ||
-            message.message?.imageMessage?.caption?.trim() ||
-            message.message?.videoMessage?.caption?.trim() ||
-            '';
-
-        logMessage(Tayc, message);
-
-        if (message.message) {
-            await storeMessage(message, Tayc.user.id === Tayc.user.id);
-        }
-
-        // Handle message revocation
-        if (message.message?.protocolMessage?.type === 0) {
-            await handleMessageRevocation(Tayc, message);
+        // === Message revoked ===
+        if (m.msg?.protocolMessage?.type === 0) {
+            await handleMessageRevocation(Tayc, m);
             return;
         }
 
-
-        // Check for bad words FIRST, before ANY other processing
-        if (isGroup && userMessage) {
-            await handleBadwordDetection(Tayc, chatId, message, userMessage, senderJid);
-            await Antilink(message, Tayc);
+        // === Antilink / Badwords ===
+        if (fromGroup && m.body) {
+            await handleBadwordDetection(Tayc, chatId, m, m.body.toLowerCase(), senderJid);
+            await Antilink(m, Tayc);
         }
 
-        // Then check for command prefix
-        if (!userMessage.startsWith(prefix) && settings.chatbot === "on") {
-            await handleChatbotResponse(Tayc, chatId, message, userMessage, senderJid);
+        // === Chatbot mode ===
+        if (!m.body.startsWith(prefix) && settings.chatbot === "on") {
+            await handleChatbotResponse(Tayc, chatId, m, m.body.toLowerCase(), senderJid);
             return;
         }
 
+        // === Build context ===
         const context = {
-            sendText,
+            Tayc,                  // client instance
+            sendText,              // async send text
+            reply,                 // reply with quoted
+            react,                 // react with emoji
+            m,                     // formatted message object
+            key: m.key,            // key object
+            body: m.body,          // raw body
+            quoted: m.quoted?.msg, // quoted msg (if any)
+            chatId,                // JID
+            sender: senderJid,     // sender JID
             isGroup: fromGroup,
-            botNumber,
+            isBotAdmin,            // whether it's an admin or sudo
+            isOwner: isBotAdmin,   // alias
+            isBotUser: m.fromMe,
+            botNumber,             // bot number
             prefix,
-            reply,
-            react,
-            key,
-            quotedMessage,
-            isBotAdmin,
-            jid: message.key.remoteJid,
-            isBotUser: Tayc.user.id === Tayc.user.id,
-            botMode: settings.mode
-        }
+            from: chatId,          // alias
+            botMode: settings.mode,
+            settings,              // full bot settings
+            participants: m.participants || [],
+            groupMetadata: m.groupMetadata || {},
+            quotedMessage: m.quoted?.msg || null,
+            command: '',
+            args: [],
+            full: '',
+            raw: message           // original Baileys message
+        };
 
+        // === Command handling ===
         if (m.body.startsWith(prefix)) {
             const body = m.body.slice(prefix.length).trim();
             const commandName = body.split(' ')[0].toLowerCase();
             const args = body.split(' ').slice(1);
 
+            context.args = args;
+            context.full = body;
+            context.command = commandName;
+
             const matched = COMMANDS.find(cmd =>
                 Array.isArray(cmd.command) ? cmd.command.includes(commandName) : cmd.command === commandName
             );
 
-            if (matched && typeof matched.operate === 'function') {
+            if (!matched) {
+                await reply(`❌ Unknown command: *${commandName}*`);
+                return;
+            }
+
+            if (typeof matched.operate === 'function') {
                 try {
-                    await matched.operate({
-                        Tayc,
-                        ...context,
-                        args,
-                        ...global,
-                        full: body,
-                        command: commandName,
-                        message: m,
-                        sender: senderJid,
-                        from: chatId
-                    });
+                    console.log(chalk.gray(`[TAYC-CMD] Executing: ${matched.command}`));
+                    await matched.operate(context);
                 } catch (err) {
                     console.error(`❌ Error in command "${matched.command}":`, err);
-                    await reply("❌ Une erreur est survenue lors de l'exécution de la commande.");
+                    await reply("❌ An error occurred while executing the command.");
                 }
             }
         }
 
     } catch (error) {
-        console.error('❌ Error in message handler:', error.message);
+        console.error('❌ Error in handleMessages:', error);
         await Tayc.sendMessage(Tayc.user.id, {
-            text: '❌ Failed to handle message❌\n\n' + error,
+            text: '❌ Message handling failed:\n\n' + error.message,
         });
     }
 }

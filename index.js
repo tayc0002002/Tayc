@@ -37,6 +37,7 @@ const { smsg } = require('./lib/myfunc')
 const { COMMANDS, loadCommands, watchCommands } = require('./src/lib/loader')
 
 const settings = require('./settings')
+const { startAutoClear } = require('./lib/myfunc2')
 
 let phoneNumber = "255763834140"
 
@@ -192,6 +193,7 @@ async function startTaycInc() {
 
 loadCommands()
 watchCommands()
+startAutoClear()
 
 startTaycInc().catch(error => {
     console.error('Fatal error:', error)
