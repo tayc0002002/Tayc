@@ -1,5 +1,5 @@
 require('./config.js');
-const { fetchBuffer, GETSETTINGS } = require('./lib/myfunc');
+const { fetchBuffer, GETSETTINGS, isAdmin } = require('./lib/myfunc');
 const fs = require('fs');
 
 const path = require('path');
@@ -16,7 +16,6 @@ const { demoteCommand } = require('./commands/demote');
 const muteCommand = require('./commands/mute');
 const unmuteCommand = require('./commands/unmute');
 const stickerCommand = require('./commands/sticker');
-const isAdmin = require('./lib/isAdmin');
 const warnCommand = require('./commands/warn');
 const warningsCommand = require('./commands/warnings');
 const ttsCommand = require('./commands/tts');
@@ -143,14 +142,22 @@ async function handleMessages(Tayc, messageUpdate, printLog) {
         if (type !== 'notify') return;
 
         const message = messages[0];
+        const from = message.key.remoteJid;
+        const fromGroup = from.endsWith('@g.us');
+        const senderJid = fromGroup ? message.key.participant : from;
 
+        const quotedMessage = message.message?.extendedTextMessage?.contextInfo?.quotedMessage;
         if (!message?.message) return;
-        const prefix = settings.prefix || '.'
-        const Layout = {
-            isGroup: message.key.remoteJid.endsWith('@g.us'),
+        const prefix = settings.prefix
+        const reply = (text) => Tayc.sendMessage(from, { text }, { quoted: message });
+
+        const context = {
+            isGroup: fromGroup,
             botNumber: Tayc.user.id,
             prefix,
-            isAdmin: sudoList.includes(message.key.remoteJid),
+            reply,
+            quotedMessage,
+            isAdmin: sudoList.includes(senderJid),
             jid: message.key.remoteJid,
             isBotUser: Tayc.user.id === Tayc.user.id,
             botMode: settings.mode
@@ -202,7 +209,7 @@ async function handleMessages(Tayc, messageUpdate, printLog) {
         }
 
         // Then check for command prefix
-        if (!userMessage.startsWith('.')) {
+        if (!userMessage.startsWith(prefix)) {
             if (isGroup) {
                 // Process non-command messages first
                 await handleChatbotResponse(Tayc, chatId, message, userMessage, senderId);
@@ -211,70 +218,9 @@ async function handleMessages(Tayc, messageUpdate, printLog) {
             }
             return;
         }
-
-        // List of admin commands
-        const adminCommands = ['.mute', '.unmute', '.ban', '.unban', '.promote', '.demote', '.kick', '.tagall', '.antilink'];
-        const isAdminCommand = adminCommands.some(cmd => userMessage.startsWith(cmd));
-
-        // List of owner commands
-        const ownerCommands = ['.mode', '.autostatus', '.antidelete', '.cleartmp', '.setpp', '.clearsession', '.areact', '.autoreact'];
-        const isOwnerCommand = ownerCommands.some(cmd => userMessage.startsWith(cmd));
-
         let isSenderAdmin = false;
         let isBotAdmin = false;
 
-        // Check admin status only for admin commands in groups
-        if (isGroup && isAdminCommand) {
-            const adminStatus = await isAdmin(Tayc, chatId, senderId, message);
-            isSenderAdmin = adminStatus.isSenderAdmin;
-            isBotAdmin = adminStatus.isBotAdmin;
-
-            if (!isBotAdmin) {
-                await Tayc.sendMessage(chatId, { text: 'Please make the bot an admin to use admin commands.', ...channelInfo }, { quoted: message });
-                return;
-            }
-
-            if (
-                userMessage.startsWith('.mute') ||
-                userMessage === '.unmute' ||
-                userMessage.startsWith('.ban') ||
-                userMessage.startsWith('.unban') ||
-                userMessage.startsWith('.promote') ||
-                userMessage.startsWith('.demote')
-            ) {
-                if (!isSenderAdmin && !message.key.fromMe) {
-                    await Tayc.sendMessage(chatId, {
-                        text: 'Sorry, only group admins can use this command.',
-                        ...channelInfo
-                    });
-                    return;
-                }
-            }
-        }
-
-        // Check owner status for owner commands
-        if (isOwnerCommand) {
-            // Check if message is from owner (fromMe) or bot itself
-            if (!message.key.fromMe) {
-                await Tayc.sendMessage(chatId, {
-                    text: '❌ This command is only available for the owner!',
-                    ...channelInfo
-                });
-                return;
-            }
-        }
-
-        // Add this near the start of your message handling logic, before processing commands
-        try {
-            const data = JSON.parse(fs.readFileSync('./data/messageCount.json'));
-            // Allow owner to use bot even in private mode
-            if (!data.isPublic && !message.key.fromMe) {
-                return; // Silently ignore messages from non-owners when in private mode
-            }
-        } catch (error) {
-            console.error('Error checking access mode:', error);
-            // Default to public mode if there's an error reading the file
-        }
 
         // Command handlers
         switch (true) {

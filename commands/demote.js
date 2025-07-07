@@ -1,5 +1,5 @@
 
-const isAdmin = require('../lib/isAdmin');
+const isAdmin = require('../lib/myfunc'); // Import isAdmin from helpers
 
 async function demoteCommand(sock, chatId, mentionedJids, message) {
     try {

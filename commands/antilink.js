@@ -1,7 +1,7 @@
 
 const { bots } = require('../lib/antilink');
 const { setAntilink, getAntilink, removeAntilink } = require('../lib/index');
-const isAdmin = require('../lib/isAdmin');
+const isAdmin = require('../lib/myfunc'); // Import isAdmin from helpers
 
 async function handleAntilinkCommand(sock, chatId, userMessage, senderId, isSenderAdmin) {
     try {

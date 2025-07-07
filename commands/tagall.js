@@ -1,5 +1,5 @@
 
-const isAdmin = require('../lib/isAdmin');  // Move isAdmin to helpers
+const isAdmin = require('../lib/myfunc');  // Move isAdmin to helpers
 
 async function tagAllCommand(sock, chatId, senderId) {
     try {

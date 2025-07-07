@@ -1,6 +1,6 @@
 
 const { handleAntiBadwordCommand } = require('../lib/antibadword');
-const isAdminHelper = require('../lib/isAdmin');
+const isAdminHelper = require('../lib/myfunc'); // Import isAdmin from helpers
 
 async function antibadwordCommand(sock, chatId, message, senderId, isSenderAdmin) {
     try {

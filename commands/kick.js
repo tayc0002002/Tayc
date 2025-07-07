@@ -1,5 +1,5 @@
 
-const isAdmin = require('../lib/isAdmin');
+const {isAdmin} = require('../lib/myfunc'); // Import isAdmin from helpers
 
 async function kickCommand(sock, chatId, senderId, mentionedJids, message) {
     // Check if user is owner
