@@ -1,5 +1,5 @@
 
-const isAdmin = require('../lib/myfunc'); // Import isAdmin from helpers
+const {isAdmin} = require('../lib/myfunc'); // Import isAdmin from helpers
 
 async function deleteCommand(sock, chatId, message, senderId) {
     const { isSenderAdmin, isBotAdmin } = await isAdmin(sock, chatId, senderId);

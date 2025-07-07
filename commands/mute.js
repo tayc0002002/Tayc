@@ -1,5 +1,5 @@
 
-const isAdmin = require('../lib/myfunc'); // Import isAdmin from helpers
+const {isAdmin} = require('../lib/myfunc'); // Import isAdmin from helpers
 
 async function muteCommand(sock, chatId, senderId, durationInMinutes) {
     console.log(`Attempting to mute the group for ${durationInMinutes} minutes.`); // Log for debugging

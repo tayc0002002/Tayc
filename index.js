@@ -9,7 +9,6 @@
  * - Baileys Library by prince
  * - Pair Code implementation inspired by princetech
  */
-require('./settings')
 const fs = require('fs')
 const path = require('path')
 const chalk = require('chalk')
@@ -40,10 +39,7 @@ const { COMMANDS, loadCommands, watchCommands } = require('./src/lib/loader')
 const settings = require('./settings')
 
 let phoneNumber = "255763834140"
-let owner = JSON.parse(fs.readFileSync('./data/owner.json'))
 
-global.botname = "KNIGHT BOT"
-global.themeemoji = "•"
 
 const pairingCode = !!phoneNumber || process.argv.includes("--pairing-code")
 const useMobile = process.argv.includes("--mobile")
@@ -85,32 +81,6 @@ const store = {
     loadMessage: async (jid, id) => {
         return this.messages[jid]?.[id] || null
     }
-}
-
-function watchAndReload(dir = __dirname) {
-    const watchedFiles = new Set()
-    function watchDirectory(directory) {
-        const files = fs.readdirSync(directory)
-        for (const file of files) {
-            const fullPath = path.join(directory, file)
-            const stat = fs.statSync(fullPath)
-            if (stat.isDirectory()) {
-                watchDirectory(fullPath)
-            } else if (file.endsWith('.js') && !watchedFiles.has(fullPath)) {
-                watchedFiles.add(fullPath)
-                fs.watchFile(fullPath, () => {
-                    try {
-                        delete require.cache[require.resolve(fullPath)]
-                        console.log(chalk.yellow(`🔄 Reloaded: ${fullPath}`))
-                    } catch (e) {
-                        console.error(chalk.red(`❌ Failed to reload ${fullPath}: ${e.message}`))
-                    }
-                })
-            }
-        }
-    }
-    watchDirectory(dir)
-    console.log(chalk.green(`✅ Watching JS files in: ${dir}`))
 }
 
 async function startTaycInc() {
@@ -222,7 +192,6 @@ async function startTaycInc() {
 
 loadCommands()
 watchCommands()
-watchAndReload()
 
 startTaycInc().catch(error => {
     console.error('Fatal error:', error)

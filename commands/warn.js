@@ -1,7 +1,7 @@
 
 const fs = require('fs');
 const path = require('path');
-const isAdmin = require('../lib/myfunc'); // Import isAdmin from helpers
+const {isAdmin} = require('../lib/myfunc'); // Import isAdmin from helpers
 
 // Define paths
 const databaseDir = path.join(process.cwd(), 'data');

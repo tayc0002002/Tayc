@@ -1,5 +1,4 @@
 {
-    "chat": [],
     "settings": {
         "prefix": ".",
         "chatbot": "on",
@@ -8,5 +7,7 @@
         "autoviewstatus": true,
         "autoreactstatus": true
     },
+    "chat": [],
+    "mess": {},
     "sudo": []
 }

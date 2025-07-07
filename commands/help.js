@@ -155,15 +155,6 @@ Join our channel for updates:`;
             await sock.sendMessage(chatId, {
                 image: imageBuffer,
                 caption: helpMessage,
-                contextInfo: {
-                    forwardingScore: 1,
-                    isForwarded: true,
-                    forwardedNewsletterMessageInfo: {
-                        newsletterJid: '120363398106360290@newsletter',
-                        newsletterName: 'BWB XMD',
-                        serverMessageId: -1
-                    }
-                }
             },{ quoted: message });
         } else {
             console.error('Bot image not found at:', imagePath);
