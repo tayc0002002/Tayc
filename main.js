@@ -15,7 +15,6 @@ const { writeFile } = require('fs/promises');
 const logMessage = require('./src/lib/statique.js');
 const { getCommands } = require('./src/lib/loader.js');
 const chalk = require('chalk');
-const { handleStatusUpdate } = require('./commands/autostatus.js');
 const { handleChatbotResponse } = require('./commands/chatbot.js');
 const { handleBadwordDetection } = require('./lib/antibadword.js');
 
@@ -107,7 +106,7 @@ async function handleMessages(Tayc, messageUpdate) {
         });
 
         logMessage(Tayc, m);
-        console.log("protocole " + message.message?.protocolMessage?.type)
+        //console.log("protocole " + message.message?.protocolMessage?.type)
 
         // === Receive contact ===
         if (["contactMessage", "contactsArrayMessage"].includes(m.mtype)) {
@@ -172,11 +171,14 @@ async function handleMessages(Tayc, messageUpdate) {
             text: "",
             Settings: LOADSETTINGS(),
             full: '',
+            cmd:"",
             raw: message           // original Baileys message
         };
 
         // === Command handling ===
         if (m.body.startsWith(prefix)) {
+            console.log("command detected");
+
             const body = m.body.slice(prefix.length).trim();
             const commandName = body.split(' ')[0].toLowerCase();
             const args = body.split(' ').slice(1);
@@ -184,12 +186,12 @@ async function handleMessages(Tayc, messageUpdate) {
             context.args = args;
             context.full = body;// full command text
             context.text = args.join(" ")
-            context.command = commandName;
-
+            context.command =commandName;
+  context.cmd=prefix+commandName
             const matched = COMMANDS.find(cmd =>
                 Array.isArray(cmd.command) ? cmd.command.includes(commandName) : cmd.command === commandName
             );
-
+            
             if (!matched) return
 
             if (taycMode === "private" && !context.isOwner && !context.isBotUser) {
@@ -200,6 +202,7 @@ async function handleMessages(Tayc, messageUpdate) {
 
             if (typeof matched.operate === 'function') {
                 try {
+                                
                     console.log(chalk.gray(`[TAYC-CMD] Executing: ${commandName} in ${matched.__source}`));
                     await matched.operate(context);
                 } catch (err) {
@@ -656,7 +659,7 @@ async function handleMessageEdit(sock, m, botNumber) {
             `*🆕 NEW:* ${newContent}`;
 
 
-            
+
         await sock.sendMessage(jid, {
             text,
             mentions: [sender]
@@ -666,6 +669,78 @@ async function handleMessageEdit(sock, m, botNumber) {
 
     } catch (err) {
         console.error("handleMessageEdit error:", err);
+    }
+}
+
+// Function to handle status updates
+async function handleStatusUpdate(sock, status) {
+    try {
+        if (!isAutoStatusEnabled()) {
+            return;
+        }
+
+        // Add delay to prevent rate limiting
+        await new Promise(resolve => setTimeout(resolve, 1000));
+
+        // Handle status from messages.upsert
+        if (status.messages && status.messages.length > 0) {
+            const msg = status.messages[0];
+            if (msg.key && msg.key.remoteJid === 'status@broadcast') {
+                try {
+                    await sock.readMessages([msg.key]);
+                    const sender = msg.key.participant || msg.key.remoteJid;
+                    // console.log(`✅ Status Viewed `);
+                } catch (err) {
+                    if (err.message?.includes('rate-overlimit')) {
+                        console.log('⚠️ Rate limit hit, waiting before retrying...');
+                        await new Promise(resolve => setTimeout(resolve, 2000));
+                        await sock.readMessages([msg.key]);
+                    } else {
+                        throw err;
+                    }
+                }
+                return;
+            }
+        }
+
+        // Handle direct status updates
+        if (status.key && status.key.remoteJid === 'status@broadcast') {
+            try {
+                await sock.readMessages([status.key]);
+                const sender = status.key.participant || status.key.remoteJid;
+                console.log(`✅ Viewed status from: ${sender.split('@')[0]}`);
+            } catch (err) {
+                if (err.message?.includes('rate-overlimit')) {
+                    console.log('⚠️ Rate limit hit, waiting before retrying...');
+                    await new Promise(resolve => setTimeout(resolve, 2000));
+                    await sock.readMessages([status.key]);
+                } else {
+                    throw err;
+                }
+            }
+            return;
+        }
+
+        // Handle status in reactions
+        if (status.reaction && status.reaction.key.remoteJid === 'status@broadcast') {
+            try {
+                await sock.readMessages([status.reaction.key]);
+                const sender = status.reaction.key.participant || status.reaction.key.remoteJid;
+                console.log(`✅ Viewed status from: ${sender.split('@')[0]}`);
+            } catch (err) {
+                if (err.message?.includes('rate-overlimit')) {
+                    console.log('⚠️ Rate limit hit, waiting before retrying...');
+                    await new Promise(resolve => setTimeout(resolve, 2000));
+                    await sock.readMessages([status.reaction.key]);
+                } else {
+                    throw err;
+                }
+            }
+            return;
+        }
+
+    } catch (error) {
+        console.error('❌ Error in auto status view:', error.message);
     }
 }
 

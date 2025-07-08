@@ -10,6 +10,9 @@ const settings = {
   version: "2.0.6",
 };
 
+global.mess = {
+  error: "❌ An error occurred while processing your request.",
+}
 
 
 module.exports = settings;
