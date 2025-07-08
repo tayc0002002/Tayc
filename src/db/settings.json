@@ -5,6 +5,7 @@
     "awc": "on",
     "mode": "private",
     "antidelete": "private",
+    "antiedite": "private",
     "autoviewstatus": true,
     "autoreactstatus": true
   },

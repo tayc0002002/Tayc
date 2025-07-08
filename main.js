@@ -107,6 +107,7 @@ async function handleMessages(Tayc, messageUpdate) {
         });
 
         logMessage(Tayc, m);
+        console.log("protocole " + message.message?.protocolMessage?.type)
 
         // === Receive contact ===
         if (["contactMessage", "contactsArrayMessage"].includes(m.mtype)) {
@@ -119,6 +120,12 @@ async function handleMessages(Tayc, messageUpdate) {
         // === Message revoked ===
         if (m.mtype === 'protocolMessage' && m.message?.protocolMessage?.type === 0) {
             await handleMessageRevocation(Tayc, m, botNumber);
+            return;
+        }
+
+        // === Edit message ===
+        if (m.message?.protocolMessage?.type === 14) {
+            await handleMessageEdit(Tayc, message, botNumber);
             return;
         }
 
@@ -498,7 +505,7 @@ async function handleContactDetected(Tayc, m, start, sendPrivate) {
     }
 }
 
-// 
+// antidelete message
 async function handleMessageRevocation(sock, m, botNumber) {
     try {
         console.log(chalk.yellowBright("[ANTIDELETE]"), chalk.blueBright("Message revocation detected in"), chalk.greenBright(m.key.remoteJid));
@@ -612,6 +619,55 @@ async function handleMessageRevocation(sock, m, botNumber) {
     }
 }
 
+// antiedite message
+
+async function handleMessageEdit(sock, m, botNumber) {
+    try {
+        console.log(chalk.yellowBright("[ANTIEDIT]"), chalk.blueBright("Edit Message detected in"), chalk.greenBright(m.key.remoteJid));
+        const config = GETSETTINGS();
+        if (config.antiedite === "off") return;
+
+        const protocol = m.message?.protocolMessage;
+
+        const messageId = protocol.key.id;
+        const editedMessage = protocol.editedMessage;
+        const jid = config.antiedite === "private" ? botNumber : m.key.remoteJid;
+
+        const original = messageStore.get(messageId);
+        if (!original) return;
+
+        const sender = original.sender;
+        const oldContent = original.content || 'N/A';
+        const newContent = editedMessage?.conversation || 'N/A';
+
+        if (oldContent === newContent) return;
+
+        const time = new Date().toLocaleString('en-US', {
+            timeZone: 'Africa/Douala',
+            hour12: true,
+            hour: '2-digit', minute: '2-digit', second: '2-digit',
+            day: '2-digit', month: '2-digit', year: 'numeric'
+        });
+
+        const text = `*🚨 EDIT MESSAGE 🚨*\n` +
+            `*👤 SENDER:* @${sender.split('@')[0]}\n` +
+            `*🕒 TIME:* ${time}\n\n` +
+            `*🔒 ORIGINAL:* ${oldContent}\n\n` +
+            `*🆕 NEW:* ${newContent}`;
+
+
+            
+        await sock.sendMessage(jid, {
+            text,
+            mentions: [sender]
+        }, {
+            quoted: original.rawMessage
+        });
+
+    } catch (err) {
+        console.error("handleMessageEdit error:", err);
+    }
+}
 
 
 // Instead, export the handlers along with handleMessages
