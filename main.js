@@ -1,5 +1,5 @@
 require('./config.js');
-const { fetchBuffer, GETSETTINGS, isAdmin, smsg, GETPRIVACY, LOADSETTINGS } = require('./lib/myfunc');
+const { fetchBuffer, GETSETTINGS, isAdmin, smsg, GETPRIVACY, LOADSETTINGS, getFolderSizeInMB } = require('./lib/myfunc');
 const fs = require('fs');
 
 const path = require('path');
@@ -18,11 +18,34 @@ const chalk = require('chalk');
 const { handleStatusUpdate } = require('./commands/autostatus.js');
 const { handleChatbotResponse } = require('./commands/chatbot.js');
 const { handleBadwordDetection } = require('./lib/antibadword.js');
-const { handleMessageRevocation } = require('./commands/antidelete.js');
 
 const messageStore = new Map();
 const ALL_CHAT_PATH = path.join(__dirname, './src/db/chats.json');
-const ALL_CONTACTS_PATH=path.join(__dirname,"./src/db/contacts.json")
+const ALL_CONTACTS_PATH = path.join(__dirname, "./src/db/contacts.json")
+
+// Making sure tmp exist 
+if (!fs.existsSync(TEMP_MEDIA_DIR)) {
+    fs.mkdirSync(TEMP_MEDIA_DIR, { recursive: true });
+}
+
+const cleanTempFolderIfLarge = () => {
+    try {
+        const sizeMB = getFolderSizeInMB(TEMP_MEDIA_DIR);
+        if (sizeMB > 100) {
+            const files = fs.readdirSync(TEMP_MEDIA_DIR);
+            for (const file of files) {
+                const filePath = path.join(TEMP_MEDIA_DIR, file);
+                if (fs.statSync(filePath).isFile()) fs.unlinkSync(filePath);
+                else fs.rmSync(filePath, { recursive: true, force: true });
+            }
+        }
+    } catch (err) {
+        console.error('Temp cleanup error:', err);
+    }
+};
+
+setInterval(cleanTempFolderIfLarge, 60 * 1000);
+
 
 function loadAllChats() {
     try {
@@ -61,7 +84,7 @@ async function handleMessages(Tayc, messageUpdate) {
         if (type !== 'notify' || !messages || messages.length === 0) return;
 
         const message = messages[0];
-        if (!message.message || message.key?.remoteJid?.endsWith("@newsletter")) return;
+        if (message.key?.remoteJid?.endsWith("@newsletter")) return;
 
         const m = smsg(Tayc, message);
         //  console.log(m);
@@ -93,10 +116,9 @@ async function handleMessages(Tayc, messageUpdate) {
 
         await storeMessage(m, m.fromMe);
 
-
         // === Message revoked ===
-        if (m.msg?.protocolMessage?.type === 0) {
-            await handleMessageRevocation(Tayc, m);
+        if (m.mtype === 'protocolMessage' && m.message?.protocolMessage?.type === 0) {
+            await handleMessageRevocation(Tayc, m, botNumber);
             return;
         }
 
@@ -396,7 +418,9 @@ function getPrompt() {
         return defaultPrompt;
     }
 }
+
 // When receive contact
+
 async function handleContactDetected(Tayc, m, start, sendPrivate) {
     if (start !== "on") return;
 
@@ -473,6 +497,122 @@ async function handleContactDetected(Tayc, m, start, sendPrivate) {
         sendPrivate("ℹ️ No new contact added or messages receive.");
     }
 }
+
+// 
+async function handleMessageRevocation(sock, m, botNumber) {
+    try {
+        console.log(chalk.yellowBright("[ANTIDELETE]"), chalk.blueBright("Message revocation detected in"), chalk.greenBright(m.key.remoteJid));
+        const config = GETSETTINGS();
+        if (config.antidelete === "off") return;
+
+        const messageId = m.message.protocolMessage.key.id;
+        const deletedBy = m.participant || m.key.participant || m.key.remoteJid;
+        const resendJid = config.antidelete === "private" ? botNumber : m.chat;
+        console.log(resendJid, deletedBy);
+
+        if (deletedBy.includes(botNumber)) return;
+
+        const original = messageStore.get(messageId);
+        if (!original) return;
+
+        const sender = original.sender;
+        const senderName = sender.split('@')[0];
+        const groupName = original.group ? (await sock.groupMetadata(original.group)).subject : '';
+
+        const time = new Date().toLocaleString('en-US', {
+            timeZone: 'Africa/Douala',
+            hour12: true, hour: '2-digit', minute: '2-digit', second: '2-digit',
+            day: '2-digit', month: '2-digit', year: 'numeric'
+        });
+
+        let text = `🚨 *DELETE ${original.mediaType ? "MEDIA" : "MESSAGE"}* 🚨\n\n` +
+            `*🗑️ Deleted By:* @${deletedBy.split('@')[0]}\n` +
+            `*👤 Sender:* @${senderName}\n` +
+            `*📱 Chat:* @${sender.split('@')[0]}\n` +
+            `*🕒 Time:* ${time}\n`;
+
+        if (groupName) text += `*👥 Group:* ${groupName}\n`;
+
+        if (original.mediaType && fs.existsSync(original.mediaPath)) {
+            const mediaOptions = {
+                caption: `*Deleted ${original.mediaType}*\nFrom: @${senderName}`,
+                mentions: [sender]
+            };
+
+            try {
+                switch (original.mediaType) {
+                    case 'image':
+                        await sock.sendMessage(resendJid, {
+                            image: { url: original.mediaPath },
+                            ...mediaOptions
+                        });
+                        break;
+                    case 'sticker':
+                        await sock.sendMessage(resendJid, {
+                            sticker: { url: original.mediaPath },
+                            ...mediaOptions
+                        });
+                        break;
+                    case 'video':
+                        await sock.sendMessage(resendJid, {
+                            video: { url: original.mediaPath },
+                            ...mediaOptions
+                        });
+                        break;
+                    case 'audio':
+                        await sock.sendMessage(resendJid, {
+                            audio: { url: original.mediaPath },
+                            ...mediaOptions
+                        });
+                        break;
+                    case 'document':
+                        await sock.sendMessage(resendJid, {
+                            document: { url: original.mediaPath },
+                            ...mediaOptions
+                        });
+                        break;
+                }
+            } catch (err) {
+                await sock.sendMessage(resendJid, {
+                    text: `⚠️ Error sending media: ${err.message}`
+                });
+            }
+
+            try {
+                fs.unlinkSync(original.mediaPath);
+            } catch (err) {
+                console.error('Media cleanup error:', err);
+            }
+
+            await sock.sendMessage(resendJid, {
+                text,
+                mentions: [deletedBy, sender]
+            }, {
+                quoted: original.rawMessage || m // ✅ reply au message original
+            });
+
+            return;
+        }
+
+        if (original.content) {
+            text += `\n*💬 Deleted Message:*\n${original.content}`;
+        }
+
+        await sock.sendMessage(resendJid, {
+            text,
+            mentions: [deletedBy, sender]
+        }, {
+            quoted: original.rawMessage || m
+        });
+
+        messageStore.delete(messageId);
+
+    } catch (err) {
+        console.error('handleMessageRevocation error:', err);
+    }
+}
+
+
 
 // Instead, export the handlers along with handleMessages
 module.exports = {

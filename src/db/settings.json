@@ -4,7 +4,7 @@
     "chatbot": "off",
     "awc": "on",
     "mode": "private",
-    "antidelete": "on",
+    "antidelete": "private",
     "autoviewstatus": true,
     "autoreactstatus": true
   },
