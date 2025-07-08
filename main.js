@@ -22,7 +22,7 @@ const { handleMessageRevocation } = require('./commands/antidelete.js');
 
 const messageStore = new Map();
 const ALL_CHAT_PATH = path.join(__dirname, './src/db/chats.json');
-
+const ALL_CONTACTS_PATH=path.join(__dirname,"./src/db/contacts.json")
 
 function loadAllChats() {
     try {
@@ -406,9 +406,8 @@ async function handleContactDetected(Tayc, m, start, sendPrivate) {
         chalk.greenBright(m.chat)
     );
 
-    const contactsPath = path.join(__dirname, "./src/db/contacts.json");
-    const CONTACTS = fs.existsSync(contactsPath)
-        ? JSON.parse(fs.readFileSync(contactsPath, 'utf-8'))
+    const CONTACTS = fs.existsSync(ALL_CONTACTS_PATH)
+        ? JSON.parse(fs.readFileSync(ALL_CONTACTS_PATH, 'utf-8'))
         : [];
 
     const mess = GETPRIVACY()?.mess?.addNewContact || "*Hi 🖖. Save me as Warano*";
@@ -464,14 +463,14 @@ async function handleContactDetected(Tayc, m, start, sendPrivate) {
     }
 
     if (count > 0) {
-        fs.writeFileSync(contactsPath, JSON.stringify(CONTACTS, null, 2));
+        fs.writeFileSync(ALL_CONTACTS_PATH, JSON.stringify(CONTACTS, null, 2));
         sendPrivate(`✅ Successfully sent add message to *${count}* of *${rawContacts.length}* contact(s).\n
             *SEND BY:*  @${m.sender.split('@')[0]}\n
             `.trim(), [...newlySent.map(c => c.jid), m.sender]);
 
         console.table(newlySent);
     } else {
-        sendPrivate("ℹ️ No new contact added or messages sent.");
+        sendPrivate("ℹ️ No new contact added or messages receive.");
     }
 }
 
