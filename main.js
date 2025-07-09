@@ -89,7 +89,7 @@ async function handleMessages(Tayc, messageUpdate) {
         const message = messages[0];
         if (message.key?.remoteJid?.endsWith("@newsletter")) return;
 
-        const m = smsg(Tayc, message);
+        const m =await smsg(Tayc, message);
         //  console.log(m);
 
         if (!m || !m.body) return;
@@ -187,7 +187,7 @@ async function handleMessages(Tayc, messageUpdate) {
             m,                     // formatted message object
             key: m.key,            // key object
             body: m.body,          // raw body
-            quoted: m.quoted?.msg, // quoted msg (if any)
+            quoted: m.quoted,
             chatId,                // JID
             sender: senderJid,     // sender JID
             isGroup: fromGroup,
