@@ -198,7 +198,7 @@ module.exports = [
     {
         command: ["setschedule", "program", "sendAt"],
         desc: "Set schedule message",
-        operate: async ({ reply,react, quotedMessage, chatId, cmd, text, Settings, saveNewSetting, lang, prefix }) => {
+        operate: async ({ reply, react, quotedMessage, chatId, cmd, text, Settings, saveNewSetting, lang, prefix }) => {
             try {
                 if (!quotedMessage) return reply("❌ Please *reply to a text message* you want to schedule.")
                 if (!text) return reply(`❌ Provide a date/time (and optionally a receiver).\n\nUsage:\n*${cmd} <date time>,<receiver>*\nExample:\n*${cmd} 09/07/2025 12:02,237621092130*`)
@@ -218,9 +218,52 @@ module.exports = [
                 saveNewSetting({ ...Settings, scheduled: newScheduled });
                 await reply(id)
                 reply(`✅ *Message scheduled!*\n\n*ID:* ${id}\n*To:* +${receiver.split("@")[0]}\n*Send At:* ${sendAt.toLocaleString(lang || "en-GB")}.\n\nℹ️ *You can undo this by typing:*\n> ${prefix}delshedul ${id}`);
-            } catch {react("❌") }
+            } catch { react("❌") }
+        }
+    },
+    {
+        command: ["removeschedule", "delschedule", "dpgm"],
+        desc: "Delete a scheduled message by its ID",
+        operate: async ({ reply, text, Settings, saveNewSetting }) => {
+            try {
+                if (!text) return reply(`❌ Please provide the ID of the scheduled message.\n\nUsage: *${cmd} <id>*`);
+                const oldScheduled = Settings.scheduled || [];
+                const exists = oldScheduled.find(m => m.id === text);
+                if (!exists) return reply("⚠️ No scheduled message found with this ID.");
+                const updated = oldScheduled.filter(m => m.id !== text);
+                saveNewSetting({ ...Settings, scheduled: updated });
+                reply(`✅ Scheduled message with ID *${text}* has been deleted successfully.`);
+            } catch (e) {
+                reply("❌ An error occurred while trying to delete the scheduled message.");
+            }
+        }
+    },
+    {
+    command: ["listschedule", "scheduled", "showSchedule","lpgmm"],
+    desc: "List all scheduled messages",
+    operate: async ({Tayc, reply,chatId, Settings, lang }) => {
+        try {
+            const scheduled = Settings.scheduled || [];
+            if (scheduled.length === 0) return reply("📭 *No scheduled messages found.*");
+
+            let msg = `🗓️ *Scheduled Messages List:*\n\n`;
+
+            for (const s of scheduled) {
+                msg += `🔹 *ID:* ${s.id}\n`;
+                msg += `📤 *To:* @${s.to.split("@")[0]}\n`;
+                msg += `🕒 *Send At:* ${new Date(s.sendAt).toLocaleString(lang || 'en-US')}\n`;
+                msg += `📝 *Text:* ${s.text.length > 100 ? s.text.slice(0, 100) + '...' : s.text}\n`;
+                msg += `"────────────────────────────"\n`;
+            }
+
+          Tayc.sendMessage(chatId,{text:msg},{mentions:scheduled.map(e=>e.to)})
+        } catch (e) {
+            reply("❌ Failed to list scheduled messages.");
         }
     }
+}
+
+
 
 
 
