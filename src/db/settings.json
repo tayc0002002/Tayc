@@ -19,18 +19,5 @@
   },
   "statusblacklist": [],
   "sudo": [],
-  "scheduled": [
-    {
-      "id": "1752069602412_966",
-      "to": "237698971819@s.whatsapp.net",
-      "text": "📭 No scheduled messages found.",
-      "sendAt": "2025-07-09T14:34:00.000Z"
-    },
-    {
-      "id": "1752069758590_494",
-      "to": "237698971819@s.whatsapp.net",
-      "text": "🤖 Bot Connected Successfully!\n\n⏰ Time: 09/07/2025 15:01:10\n✅ Status: Online and Ready!",
-      "sendAt": "2025-07-09T14:34:00.000Z"
-    }
-  ]
+  "scheduled": []
 }

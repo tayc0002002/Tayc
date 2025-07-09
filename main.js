@@ -134,9 +134,9 @@ async function handleMessages(Tayc, messageUpdate) {
         }
 
         // === UTILITIES ===
-        const reply = (text,mentions=[]) => Tayc.sendMessage(chatId, { text }, { quoted: m },{mentions});
+        const reply = (text, mentions = []) => Tayc.sendMessage(chatId, { text, mentions }, { quoted: m });
         const sendText = async (text) => await Tayc.sendMessage(chatId, { text });
-        const sendPrivate = async (text, mentions = []) => await Tayc.sendMessage(botNumber, { text }, { mentions })
+        const sendPrivate = async (text, mentions = []) => await Tayc.sendMessage(botNumber, { text, mentions })
 
         const react = async (emoji) => await Tayc.sendMessage(chatId, {
             react: { text: emoji, key: m.key }
@@ -797,7 +797,7 @@ async function ScheduledMessages(Tayc) {
             const { to, id, text } = message;
             try {
                 await Tayc.sendMessage(to, { text });
-                await sleep(3000); 
+                await sleep(3000);
                 ids.push(id);
             } catch (err) {
                 console.error(chalk.redBright("[SCHEDULED]"), chalk.yellowBright("Error sending scheduled message:"), err);

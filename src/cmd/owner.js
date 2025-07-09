@@ -217,7 +217,7 @@ module.exports = [
                 const newScheduled = [...(Settings.scheduled || []), message];
                 saveNewSetting({ ...Settings, scheduled: newScheduled });
                 await reply(id)
-                reply(`✅ *Message scheduled!*\n\n*ID:* ${id}\n*To:* +${receiver.split("@")[0]}\n*Send At:* ${sendAt.toLocaleString(lang || "en-GB")}.\n\nℹ️ *You can undo this by typing:*\n> ${prefix}delshedul ${id}`);
+                reply(`✅ *Message scheduled!*\n\n*ID:* ${id}\n*To:* @${receiver.split("@")[0]}\n*Send At:* ${sendAt.toLocaleString(lang || "en-GB")}.\n\nℹ️ *You can undo this by typing:*\n> ${prefix}delshedul ${id}`,[receiver]);
             } catch { react("❌") }
         }
     },
@@ -239,29 +239,30 @@ module.exports = [
         }
     },
     {
-    command: ["listschedule", "scheduled", "showSchedule","lpgmm"],
-    desc: "List all scheduled messages",
-    operate: async ({Tayc, reply,chatId, Settings, lang }) => {
-        try {
-            const scheduled = Settings.scheduled || [];
-            if (scheduled.length === 0) return reply("📭 *No scheduled messages found.*");
+        command: ["listschedule", "scheduled", "showSchedule", "lpgmm"],
+        desc: "List all scheduled messages",
+        operate: async ({ Tayc, reply, chatId, Settings, lang }) => {
+            try {
+                const scheduled = Settings.scheduled || [];
+                if (scheduled.length === 0) return reply("📭 *No scheduled messages found.*");
 
-            let msg = `🗓️ *Scheduled Messages List:*\n\n`;
+                let msg = `🗓️ *Scheduled Messages List:*\n\n`;
 
-            for (const s of scheduled) {
-                msg += `🔹 *ID:* ${s.id}\n`;
-                msg += `📤 *To:* @${s.to.split("@")[0]}\n`;
-                msg += `🕒 *Send At:* ${new Date(s.sendAt).toLocaleString(lang || 'en-US')}\n`;
-                msg += `📝 *Text:* ${s.text.length > 100 ? s.text.slice(0, 100) + '...' : s.text}\n`;
-                msg += `"────────────────────────────"\n`;
+                for (const s of scheduled) {
+                    msg += `•─────────────────────────\n`;
+                    msg += `| 🔹 *ID:* ${s.id}\n`;
+                    msg += `| 📤 *To:* @${s.to.split("@")[0]}\n`;
+                    msg += `| 🕒 *Send At:* ${new Date(s.sendAt).toLocaleString(lang || 'en-US')}\n`;
+                    msg += `| 📝 *Text:* ${s.text.length > 100 ? s.text.slice(0, 100) + '...' : s.text}\n`;
+                    msg += `•─────────────────────────\n`;
+                }
+
+                Tayc.sendMessage(chatId, { text: msg, mentions: scheduled.map(e => e.to) })
+            } catch (e) {
+                reply("❌ Failed to list scheduled messages.");
             }
-
-          Tayc.sendMessage(chatId,{text:msg},{mentions:scheduled.map(e=>e.to)})
-        } catch (e) {
-            reply("❌ Failed to list scheduled messages.");
         }
     }
-}
 
 
 
