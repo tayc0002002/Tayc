@@ -2,6 +2,7 @@
   "settings": {
     "prefix": ".",
     "chatbot": "off",
+    "autorecordtype":"private",
     "lang": "en",
     "awc": "on",
     "mode": "private",
@@ -9,11 +10,11 @@
     "antiedite": "private",
     "autoviewstatus": true,
     "autoreactstatus": true,
-    "autoreplystatus": true,
+    "autoreplystatus": false,
     "statusemojis": "💚,🚨"
   },
   "mess": {
-    "addNewContact": "Salut, moi c'est warano. on s’enregistre?"
+    "addNewContact": ""
   },
   "statusblacklist": [],
   "sudo": []

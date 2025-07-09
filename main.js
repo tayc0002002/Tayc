@@ -1,5 +1,5 @@
 require('./config.js');
-const { fetchBuffer, GETSETTINGS, isAdmin, smsg, GETPRIVACY, LOADSETTINGS, getFolderSizeInMB } = require('./lib/myfunc');
+const { fetchBuffer, GETSETTINGS, isAdmin, smsg, GETPRIVACY, LOADSETTINGS, getFolderSizeInMB, sleep } = require('./lib/myfunc');
 const fs = require('fs');
 
 const path = require('path');
@@ -96,6 +96,26 @@ async function handleMessages(Tayc, messageUpdate) {
         const botNumber = Tayc.user.id;
         const isBotAdmin = m.fromMe || sudoList.includes(senderJid);
 
+        const simulatePresence = async (type = null, duration = 3000) => {
+            try {
+                await sleep(2000)
+                const types = ['recording', 'composing'];
+                const presenceType = type && types.includes(type) ? type : types[Math.floor(Math.random() * types.length)];
+                await Tayc.sendPresenceUpdate(presenceType, chatId);
+                await sleep(duration);
+                await Tayc.sendPresenceUpdate('available', chatId);
+            } catch { }
+        }
+
+        // === Simulated record or type ===
+        if (
+            (settings.autorecordtype === "private" && !fromGroup && !m.fromMe) ||
+            (settings.autorecordtype === "group" && fromGroup && !m.fromMe) ||
+            settings.autorecordtype === "all"
+        ) {
+            await simulatePresence(); 
+        }
+
         // === UTILITIES ===
         const reply = (text) => Tayc.sendMessage(chatId, { text }, { quoted: m });
         const sendText = async (text) => await Tayc.sendMessage(chatId, { text });
@@ -106,7 +126,6 @@ async function handleMessages(Tayc, messageUpdate) {
         });
 
         logMessage(Tayc, m);
-        //console.log("protocole " + message.message?.protocolMessage?.type)
 
         // === Receive contact ===
         if (["contactMessage", "contactsArrayMessage"].includes(m.mtype)) {
@@ -167,6 +186,7 @@ async function handleMessages(Tayc, messageUpdate) {
             groupMetadata: m.groupMetadata || {},
             quotedMessage: m.quoted?.msg || null,
             command: '',
+            simulatePresence,
             args: [],
             text: "",
             Settings: LOADSETTINGS(),
