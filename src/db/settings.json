@@ -3,6 +3,7 @@
     "prefix": ".",
     "chatbot": "off",
     "autorecordtype":"private",
+    "autoread":"private",
     "lang": "en",
     "awc": "on",
     "mode": "private",

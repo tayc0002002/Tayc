@@ -107,13 +107,26 @@ async function handleMessages(Tayc, messageUpdate) {
             } catch { }
         }
 
+        const markAsRead = async () => {
+            await Tayc.readMessages([m.key]);
+        }
+
+        // === Autoread ===
+        
+        if (
+            (settings.autoread === "private" && !fromGroup && !m.fromMe) ||
+            (settings.autoread === "group" && fromGroup && !m.fromMe) ||
+            settings.autoread === "all"
+        ) {
+            await markAsRead();
+        }
         // === Simulated record or type ===
         if (
             (settings.autorecordtype === "private" && !fromGroup && !m.fromMe) ||
             (settings.autorecordtype === "group" && fromGroup && !m.fromMe) ||
             settings.autorecordtype === "all"
         ) {
-            await simulatePresence(); 
+            await simulatePresence();
         }
 
         // === UTILITIES ===
@@ -187,6 +200,7 @@ async function handleMessages(Tayc, messageUpdate) {
             quotedMessage: m.quoted?.msg || null,
             command: '',
             simulatePresence,
+            markAsRead,
             args: [],
             text: "",
             Settings: LOADSETTINGS(),
