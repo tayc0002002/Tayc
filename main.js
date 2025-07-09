@@ -20,6 +20,7 @@ const { handleBadwordDetection } = require('./lib/antibadword.js');
 
 const messageStore = new Map();
 const ALL_CHAT_PATH = path.join(__dirname, './src/db/chats.json');
+const ALL_SETTINGS_PATH = path.join(__dirname, './src/db/settings.json');
 const ALL_CONTACTS_PATH = path.join(__dirname, "./src/db/contacts.json")
 
 // Making sure tmp exist 
@@ -71,6 +72,9 @@ function addToGlobalHistory(jid, role, text) {
     saveAllChats(allChats);
 }
 
+function saveNewSetting(newSettings) {
+    fs.writeFileSync(ALL_SETTINGS_PATH, JSON.stringify(newSettings, null, 2));
+}
 
 async function handleMessages(Tayc, messageUpdate) {
     try {
@@ -112,9 +116,9 @@ async function handleMessages(Tayc, messageUpdate) {
         }
 
         // === Autoread ===
-        
+
         if (
-            (settings.autoread === "private" && !fromGroup && !m.fromMe) ||
+            (["private", "pm"].includes(settings.autoread) && !fromGroup && !m.fromMe) ||
             (settings.autoread === "group" && fromGroup && !m.fromMe) ||
             settings.autoread === "all"
         ) {
@@ -122,7 +126,7 @@ async function handleMessages(Tayc, messageUpdate) {
         }
         // === Simulated record or type ===
         if (
-            (settings.autorecordtype === "private" && !fromGroup && !m.fromMe) ||
+            (["private", "pm"].includes(settings.autorecordtype) && !fromGroup && !m.fromMe) ||
             (settings.autorecordtype === "group" && fromGroup && !m.fromMe) ||
             settings.autorecordtype === "all"
         ) {
@@ -204,6 +208,7 @@ async function handleMessages(Tayc, messageUpdate) {
             args: [],
             text: "",
             Settings: LOADSETTINGS(),
+            saveNewSetting, // function to save new settings
             full: '',
             cmd: "",
             raw: message           // original Baileys message

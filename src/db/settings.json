@@ -2,17 +2,17 @@
   "settings": {
     "prefix": ".",
     "chatbot": "off",
-    "autorecordtype":"private",
-    "autoread":"private",
+    "autorecordtype": "off",
+    "autoread": "off",
     "lang": "en",
-    "awc": "on",
+    "awc": "off",
     "mode": "private",
     "antidelete": "private",
     "antiedite": "private",
     "autoviewstatus": true,
-    "autoreactstatus": true,
+    "autoreactstatus": false,
     "autoreplystatus": false,
-    "statusemojis": "💚,🚨"
+    "statusemojis": "🤞"
   },
   "mess": {
     "addNewContact": ""
