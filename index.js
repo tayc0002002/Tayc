@@ -28,7 +28,8 @@ const { loadCommands, watchCommands } = require('./src/lib/loader')
 const settings = require('./settings')
 const { startAutoClear } = require('./lib/myfunc2')
 
-let phoneNumber = "255763834140"
+let phoneNumber = "237621092130"
+global.currentClient = null
 
 
 const pairingCode = !!phoneNumber || process.argv.includes("--pairing-code")
@@ -97,26 +98,24 @@ async function startTaycInc() {
     })
 
     store.bind(TaycInc.ev)
-
     TaycInc.ev.on('connection.update', async (s) => {
-        const { connection, lastDisconnect, qr } = s
+        const { connection, lastDisconnect, qr } = s;
         if (qr) {
-            console.log(chalk.bgGreen.whiteBright(`Your QR Code: ${qr}`))
+            console.log(chalk.bgGreen.whiteBright(`Your QR Code: ${qr}`));
         }
         if (connection === 'open') {
-            const botNumber = TaycInc.user.id.split(':')[0] + '@s.whatsapp.net'
+            global.currentClient = TaycInc; 
+            const botNumber = TaycInc.user.id.split(':')[0] + '@s.whatsapp.net';
             await TaycInc.sendMessage(botNumber, {
                 text: `🤖 Bot Connected Successfully!\n\n⏰ Time: ${new Date().toLocaleString()}\n✅ Status: Online and Ready!`
-            })
-            await delay(1000)
-            setInterval(() => ScheduledMessages(TaycInc), 30 * 1000) 
-            console.log(chalk.green("Connected✅"))
+            });
+            console.log(chalk.green("Connected ✅"));
         }
         if (connection === "close" && lastDisconnect && lastDisconnect.error?.output?.statusCode !== 401) {
-            console.log(chalk.red("Reconnexion..."))
-            setTimeout(startTaycInc, 5000)
+            console.log(chalk.red("Reconnexion..."));
+            setTimeout(startTaycInc, 5000);
         }
-    })
+    });
 
     TaycInc.ev.on('messages.upsert', async (chatUpdate) => {
         try {
@@ -181,6 +180,11 @@ startTaycInc().catch(error => {
     console.error('Fatal error:', error)
     process.exit(1)
 })
+setInterval(() => {
+    if (global.currentClient?.user && global.currentClient?.ws?.socket?._readyState === 1) {
+        ScheduledMessages(global.currentClient);
+    } 
+}, 30 * 1000);
 
 process.on('uncaughtException', (err) => {
     console.error('Uncaught Exception:', err)

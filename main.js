@@ -134,7 +134,7 @@ async function handleMessages(Tayc, messageUpdate) {
         }
 
         // === UTILITIES ===
-        const reply = (text) => Tayc.sendMessage(chatId, { text }, { quoted: m });
+        const reply = (text,mentions=[]) => Tayc.sendMessage(chatId, { text }, { quoted: m },{mentions});
         const sendText = async (text) => await Tayc.sendMessage(chatId, { text });
         const sendPrivate = async (text, mentions = []) => await Tayc.sendMessage(botNumber, { text }, { mentions })
 
@@ -201,7 +201,7 @@ async function handleMessages(Tayc, messageUpdate) {
             settings,              // full bot settings
             participants: m.participants || [],
             groupMetadata: m.groupMetadata || {},
-            quotedMessage: m.quoted?.msg || null,
+            quotedMessage: m.quoted?.text || null,
             command: '',
             simulatePresence,
             markAsRead,

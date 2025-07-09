@@ -35,14 +35,14 @@ module.exports = [
         }
     },
     {
-        command: ["autorecordtype","art"],
+        command: ["autorecordtype", "art"],
         desc: "Set the simulation of typing or recording",
         operate: async ({ reply, args, Settings, settings, saveNewSetting }) => {
             try {
                 if (!["all", "group", "private", 'pm', "off"].includes(args[0])) return reply(`❌ Invalid argument. Please use "all", "group", "private", or "pm".`)
                 settings.autorecordtype = args[0]
                 saveNewSetting({ ...Settings, settings })
-                reply(`*✅ Autorecord type  ${args[0] === "off" ? "disabled" :"set to "+ args[0]} successfully !*`);
+                reply(`*✅ Autorecord type  ${args[0] === "off" ? "disabled" : "set to " + args[0]} successfully !*`);
             } catch { }
         }
     },
@@ -195,6 +195,33 @@ module.exports = [
             } catch { }
         }
     },
+    {
+        command: ["setschedule", "program", "sendAt"],
+        desc: "Set schedule message",
+        operate: async ({ reply,react, quotedMessage, chatId, cmd, text, Settings, saveNewSetting, lang, prefix }) => {
+            try {
+                if (!quotedMessage) return reply("❌ Please *reply to a text message* you want to schedule.")
+                if (!text) return reply(`❌ Provide a date/time (and optionally a receiver).\n\nUsage:\n*${cmd} <date time>,<receiver>*\nExample:\n*${cmd} 09/07/2025 12:02,237621092130*`)
+                let [rawDate, receiver] = text.split(",").map(e => e.trim());
+                const [datePart, timePart] = rawDate.split(" ");
+                if (!datePart || !timePart) return reply("❌ Invalid date format. Use *dd/mm/yyyy hh:mm*");
+                const [day, month, year] = datePart.split("/").map(Number);
+                const [hour, minute] = timePart.split(":").map(Number);
+                const sendAt = new Date(year, month - 1, day, hour, minute);
+                if (isNaN(sendAt.getTime())) return reply("❌ Invalid date/time.");
+                if (sendAt <= new Date()) return reply("⏱️ The time must be in the future.");
+                if (!receiver || receiver === "") receiver = chatId;
+                else if (/^\d{10,15}$/.test(receiver)) receiver = receiver + "@s.whatsapp.net";
+                const id = Date.now() + "_" + Math.floor(Math.random() * 1000);
+                const message = { id, to: receiver, text: quotedMessage, sendAt: sendAt.toISOString() };
+                const newScheduled = [...(Settings.scheduled || []), message];
+                saveNewSetting({ ...Settings, scheduled: newScheduled });
+                await reply(id)
+                reply(`✅ *Message scheduled!*\n\n*ID:* ${id}\n*To:* +${receiver.split("@")[0]}\n*Send At:* ${sendAt.toLocaleString(lang || "en-GB")}.\n\nℹ️ *You can undo this by typing:*\n> ${prefix}delshedul ${id}`);
+            } catch {react("❌") }
+        }
+    }
+
 
 
 
