@@ -171,7 +171,7 @@ async function handleMessages(Tayc, messageUpdate) {
             text: "",
             Settings: LOADSETTINGS(),
             full: '',
-            cmd:"",
+            cmd: "",
             raw: message           // original Baileys message
         };
 
@@ -186,12 +186,12 @@ async function handleMessages(Tayc, messageUpdate) {
             context.args = args;
             context.full = body;// full command text
             context.text = args.join(" ")
-            context.command =commandName;
-  context.cmd=prefix+commandName
+            context.command = commandName;
+            context.cmd = prefix + commandName
             const matched = COMMANDS.find(cmd =>
                 Array.isArray(cmd.command) ? cmd.command.includes(commandName) : cmd.command === commandName
             );
-            
+
             if (!matched) return
 
             if (taycMode === "private" && !context.isOwner && !context.isBotUser) {
@@ -202,7 +202,7 @@ async function handleMessages(Tayc, messageUpdate) {
 
             if (typeof matched.operate === 'function') {
                 try {
-                                
+
                     console.log(chalk.gray(`[TAYC-CMD] Executing: ${commandName} in ${matched.__source}`));
                     await matched.operate(context);
                 } catch (err) {
@@ -673,76 +673,76 @@ async function handleMessageEdit(sock, m, botNumber) {
 }
 
 // Function to handle status updates
-async function handleStatusUpdate(sock, status) {
+const viewedStatusCache = new Set();
+
+async function handleStatusUpdate(sock, update) {
     try {
-        if (!isAutoStatusEnabled()) {
-            return;
-        }
+        const config = GETSETTINGS();
+        const statusBlackList = GETPRIVACY().statusblacklist || [];
+        if (!config.autoviewstatus) return;
 
-        // Add delay to prevent rate limiting
-        await new Promise(resolve => setTimeout(resolve, 1000));
+        const msg = update?.messages?.[0];
+        const key = msg?.key;
+        const messageId = key?.id;
 
-        // Handle status from messages.upsert
-        if (status.messages && status.messages.length > 0) {
-            const msg = status.messages[0];
-            if (msg.key && msg.key.remoteJid === 'status@broadcast') {
-                try {
-                    await sock.readMessages([msg.key]);
-                    const sender = msg.key.participant || msg.key.remoteJid;
-                    // console.log(`✅ Status Viewed `);
-                } catch (err) {
-                    if (err.message?.includes('rate-overlimit')) {
-                        console.log('⚠️ Rate limit hit, waiting before retrying...');
-                        await new Promise(resolve => setTimeout(resolve, 2000));
-                        await sock.readMessages([msg.key]);
-                    } else {
-                        throw err;
-                    }
-                }
+        if (!msg || !key || key.remoteJid !== 'status@broadcast' || key.fromMe) return;
+        const sender = key.participant;
+        if (!sender || statusBlackList.includes(sender) || viewedStatusCache.has(messageId)) return;
+        viewedStatusCache.add(messageId);
+        console.log(chalk.yellowBright("[STATUS]"), chalk.blueBright("Status update detected"));
+
+        // === Mark as vie ===
+        try {
+            await sock.readMessages([key]);
+        } catch (err) {
+            if (err.message?.includes('rate-overlimit')) {
+                console.log('⚠️ Rate limit hit. Retrying...');
+                await new Promise(res => setTimeout(res, 2000));
+                await sock.readMessages([key]);
+            } else {
+                console.error('❌ Error viewing status:', err.message);
                 return;
             }
         }
 
-        // Handle direct status updates
-        if (status.key && status.key.remoteJid === 'status@broadcast') {
-            try {
-                await sock.readMessages([status.key]);
-                const sender = status.key.participant || status.key.remoteJid;
-                console.log(`✅ Viewed status from: ${sender.split('@')[0]}`);
-            } catch (err) {
-                if (err.message?.includes('rate-overlimit')) {
-                    console.log('⚠️ Rate limit hit, waiting before retrying...');
-                    await new Promise(resolve => setTimeout(resolve, 2000));
-                    await sock.readMessages([status.key]);
-                } else {
-                    throw err;
+        // === Auto react ===
+        if (config.autoreactstatus) {
+            const emojis = (config.statusemojis || "").split(",").map(e => e.trim()).filter(Boolean);
+            const emoji = emojis[Math.floor(Math.random() * emojis.length)];
+
+            if (emoji) {
+                try {
+                    await sock.sendMessage(sender, {
+                        react: { text: emoji, key },
+                        statusJidList: [sender, sock.user.id]
+                    });
+                    console.log(`🎉 Reacted with ${emoji} to ${sender.split('@')[0]} story`);
+                } catch (e) {
+                    console.error("❌ Failed to react to status:", e.message);
                 }
             }
-            return;
         }
 
-        // Handle status in reactions
-        if (status.reaction && status.reaction.key.remoteJid === 'status@broadcast') {
+        const content = msg.message?.extendedTextMessage?.text;
+
+        if (config.autoreplystatus && content) {
+            // const replyText = await getSmartReply(content);
+            const replyText = `🤖 Auto-reply:\nYour status says:\n> ${content}`;
+
             try {
-                await sock.readMessages([status.reaction.key]);
-                const sender = status.reaction.key.participant || status.reaction.key.remoteJid;
-                console.log(`✅ Viewed status from: ${sender.split('@')[0]}`);
+                await sock.sendMessage(sender, { text: replyText }, { quoted: msg });
             } catch (err) {
-                if (err.message?.includes('rate-overlimit')) {
-                    console.log('⚠️ Rate limit hit, waiting before retrying...');
-                    await new Promise(resolve => setTimeout(resolve, 2000));
-                    await sock.readMessages([status.reaction.key]);
-                } else {
-                    throw err;
-                }
+                console.error("❌ Failed to auto-reply:", err.message);
             }
-            return;
         }
 
     } catch (error) {
-        console.error('❌ Error in auto status view:', error.message);
+        console.error('❌ Error in handleStatusUpdate:', error.message);
     }
 }
+
+
+
 
 
 // Instead, export the handlers along with handleMessages
@@ -750,7 +750,5 @@ module.exports = {
     getPrompt,
     handleMessages,
     handleGroupParticipantUpdate,
-    handleStatus: async (Tayc, status) => {
-        await handleStatusUpdate(Tayc, status);
-    }
+    handleStatusUpdate
 };

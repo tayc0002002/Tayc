@@ -8,10 +8,13 @@
     "antidelete": "private",
     "antiedite": "private",
     "autoviewstatus": true,
-    "autoreactstatus": true
+    "autoreactstatus": true,
+    "autoreplystatus": true,
+    "statusemojis": "💚,🚨"
   },
   "mess": {
     "addNewContact": "Salut, moi c'est warano. on s’enregistre?"
   },
+  "statusblacklist": [],
   "sudo": []
 }

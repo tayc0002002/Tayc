@@ -1,14 +1,3 @@
-/**
- * prince Bot - A WhatsApp Bot
- * Copyright (c) 2025 Prince 
- * 
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the MIT License.
- * 
- * Credits:
- * - Baileys Library by prince
- * - Pair Code implementation inspired by princetech
- */
 const fs = require('fs')
 const path = require('path')
 const chalk = require('chalk')
@@ -32,9 +21,9 @@ const {
     delay
 } = require("@whiskeysockets/baileys")
 
-const { handleMessages, handleGroupParticipantUpdate, handleStatus, getPrompt } = require('./main')
+const { handleMessages, handleGroupParticipantUpdate, getPrompt, handleStatusUpdate } = require('./main')
 const { smsg } = require('./lib/myfunc')
-const { COMMANDS, loadCommands, watchCommands } = require('./src/lib/loader')
+const { loadCommands, watchCommands } = require('./src/lib/loader')
 
 const settings = require('./settings')
 const { startAutoClear } = require('./lib/myfunc2')
@@ -134,7 +123,7 @@ async function startTaycInc() {
             if (!mek.message) return
             mek.message = (Object.keys(mek.message)[0] === 'ephemeralMessage') ? mek.message.ephemeralMessage.message : mek.message
             if (mek.key && mek.key.remoteJid === 'status@broadcast') {
-                await handleStatus(TaycInc, chatUpdate)
+                await handleStatusUpdate(TaycInc, chatUpdate)
                 return
             }
             // if (!TaycInc.public && !mek.key.fromMe && chatUpdate.type === 'notify') return
@@ -147,14 +136,6 @@ async function startTaycInc() {
 
     TaycInc.ev.on('group-participants.update', async (update) => {
         await handleGroupParticipantUpdate(TaycInc, update)
-    })
-
-    TaycInc.ev.on('status.update', async (status) => {
-        await handleStatus(TaycInc, status)
-    })
-
-    TaycInc.ev.on('messages.reaction', async (status) => {
-        await handleStatus(TaycInc, status)
     })
 
     TaycInc.decodeJid = (jid) => {
