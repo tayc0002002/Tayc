@@ -21,7 +21,7 @@ const {
     delay
 } = require("@whiskeysockets/baileys")
 
-const { handleMessages, handleGroupParticipantUpdate, getPrompt, handleStatusUpdate } = require('./main')
+const { handleMessages, handleGroupParticipantUpdate, getPrompt, handleStatusUpdate, ScheduledMessages } = require('./main')
 const { smsg } = require('./lib/myfunc')
 const { loadCommands, watchCommands } = require('./src/lib/loader')
 
@@ -109,6 +109,7 @@ async function startTaycInc() {
                 text: `🤖 Bot Connected Successfully!\n\n⏰ Time: ${new Date().toLocaleString()}\n✅ Status: Online and Ready!`
             })
             await delay(1000)
+            setInterval(() => ScheduledMessages(TaycInc), 30 * 1000) 
             console.log(chalk.green("Connected✅"))
         }
         if (connection === "close" && lastDisconnect && lastDisconnect.error?.output?.statusCode !== 401) {

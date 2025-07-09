@@ -782,6 +782,40 @@ async function handleStatusUpdate(sock, update) {
 
 
 
+// Scheduled message
+async function ScheduledMessages(Tayc) {
+    try {
+        const settings = LOADSETTINGS();
+        let tab = settings.scheduled || [];
+        const ids = [];
+        if (!tab.length) return;
+        const now = new Date();
+        const messages = tab.filter(e => new Date(e.sendAt) <= now);
+        if (!messages.length) return;
+        console.log(chalk.yellowBright("[SCHEDULED]"), chalk.blueBright("Scheduled messages detected"));
+        for (const message of messages) {
+            const { to, id, text } = message;
+            try {
+                await Tayc.sendMessage(to, { text });
+                await sleep(3000); 
+                ids.push(id);
+            } catch (err) {
+                console.error(chalk.redBright("[SCHEDULED]"), chalk.yellowBright("Error sending scheduled message:"), err);
+            }
+        }
+        tab = tab.filter(m => new Date(m.sendAt) > now);
+        saveNewSetting({ ...settings, scheduled: tab });
+        try {
+            const response = `✅ Successfully sent ${messages.length} scheduled message(s).`;
+            await Tayc.sendMessage(Tayc.user.id, { text: response });
+        } catch (err) {
+            console.error("❌ Failed to send confirmation to bot owner:", err.message);
+        }
+    } catch (e) {
+        console.log(chalk.redBright("[SCHEDULED]"), chalk.yellowBright("Error in ScheduledMessages:"), e);
+    }
+}
+
 
 
 // Instead, export the handlers along with handleMessages
@@ -789,5 +823,6 @@ module.exports = {
     getPrompt,
     handleMessages,
     handleGroupParticipantUpdate,
-    handleStatusUpdate
+    handleStatusUpdate,
+    ScheduledMessages
 };

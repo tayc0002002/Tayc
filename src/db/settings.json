@@ -18,5 +18,6 @@
     "addNewContact": ""
   },
   "statusblacklist": [],
-  "sudo": []
+  "sudo": [],
+  "scheduled": []
 }
