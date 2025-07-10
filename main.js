@@ -17,6 +17,7 @@ const { getCommands } = require('./src/lib/loader.js');
 const chalk = require('chalk');
 const { handleChatbotResponse } = require('./commands/chatbot.js');
 const { handleBadwordDetection } = require('./lib/antibadword.js');
+const { FORWARDMESSAGE, estimateForwardTime, getForwardStatus, stopForwarding } = require('./src/lib/forwarder.js');
 
 const messageStore = new Map();
 const ALL_CHAT_PATH = path.join(__dirname, './src/db/chats.json');
@@ -71,14 +72,19 @@ function addToGlobalHistory(jid, role, text) {
     if (allChats[jid].length > 20) allChats[jid].shift();
     saveAllChats(allChats);
 }
+/**
+ * 
+ * @param {object} newSettings 
+ */
 
 function saveNewSetting(newSettings) {
     fs.writeFileSync(ALL_SETTINGS_PATH, JSON.stringify(newSettings, null, 2));
 }
 
+
 async function handleMessages(Tayc, messageUpdate) {
     try {
-        const settings = GETSETTINGS();
+        const settings = GETSETTINGS(); 
         const COMMANDS = getCommands();
         const prefix = settings.prefix;
         const sudoList = GETPRIVACY().sudo || [];
@@ -89,7 +95,7 @@ async function handleMessages(Tayc, messageUpdate) {
         const message = messages[0];
         if (message.key?.remoteJid?.endsWith("@newsletter")) return;
 
-        const m =await smsg(Tayc, message);
+        const m = await smsg(Tayc, message);
         //  console.log(m);
 
         if (!m || !m.body) return;
@@ -205,6 +211,10 @@ async function handleMessages(Tayc, messageUpdate) {
             command: '',
             simulatePresence,
             markAsRead,
+            FORWARDMESSAGE,
+            estimateForwardTime,
+            getForwardStatus,
+            stopForwarding,
             args: [],
             text: "",
             Settings: LOADSETTINGS(),
@@ -824,5 +834,6 @@ module.exports = {
     handleMessages,
     handleGroupParticipantUpdate,
     handleStatusUpdate,
-    ScheduledMessages
+    ScheduledMessages,
+    saveNewSetting
 };

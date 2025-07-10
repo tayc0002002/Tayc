@@ -126,7 +126,6 @@ async function startTaycInc() {
                 await handleStatusUpdate(TaycInc, chatUpdate)
                 return
             }
-            // if (!TaycInc.public && !mek.key.fromMe && chatUpdate.type === 'notify') return
             if (mek.key.id.startsWith('BAE5') && mek.key.id.length === 16) return
             await handleMessages(TaycInc, chatUpdate, true)
         } catch (err) {
