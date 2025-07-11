@@ -148,11 +148,11 @@ async function startTaycInc() {
     }
 
 
-    if (!XeonBotInc.authState.creds.registered) {
+    if (!TaycInc.authState.creds.registered) {
         if (useMobile) throw new Error('Cannot use pairing code with mobile api')
 
         let phoneNumber
-        phoneNumber = await question(chalk.bgBlack(chalk.greenBright(`Enter your phone number : `)))
+        phoneNumber = await question(chalk.bgBlack(chalk.underline.greenBright(`\nEnter your phone number : `)))
         // Clean the phone number - remove any non-digit characters
         phoneNumber = phoneNumber.replace(/[^0-9]/g, '')
 
@@ -165,10 +165,10 @@ async function startTaycInc() {
 
         setTimeout(async () => {
             try {
-                let code = await XeonBotInc.requestPairingCode(phoneNumber)
+                let code = await TaycInc.requestPairingCode(phoneNumber)
                 code = code?.match(/.{1,4}/g)?.join("-") || code
-                console.log(chalk.black(chalk.bgGreen(`Your Pairing Code : `)), chalk.black(chalk.white(code)))
-                console.log(chalk.yellow(`\nPlease enter this code in your WhatsApp app:\n1. Open WhatsApp\n2. Go to Settings > Linked Devices\n3. Tap "Link a Device"\n4. Enter the code shown above`))
+                console.log(chalk.black(chalk.underline.bgGreen(`\n\nYour Pairing Code : `)), chalk.underline.black(chalk.white(code)))
+                console.log(chalk.yellow(`\n Waiting for you to connect...`))
             } catch (error) {
                 console.error('Error requesting pairing code:', error)
                 console.log(chalk.red('Failed to get pairing code. Please check your phone number and try again.'))
