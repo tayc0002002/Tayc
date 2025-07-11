@@ -1,15 +1,8 @@
-const fs = require('fs')
-const path = require('path')
 const chalk = require('chalk')
-const axios = require('axios')
-const FileType = require('file-type')
 const readline = require('readline')
 const PhoneNumber = require('awesome-phonenumber')
 const NodeCache = require("node-cache")
 const pino = require("pino")
-const { parsePhoneNumber } = require("libphonenumber-js")
-const { rmSync, existsSync } = require('fs')
-const { join } = require('path')
 
 const {
     default: makeWASocket,
@@ -17,22 +10,15 @@ const {
     fetchLatestBaileysVersion,
     jidDecode,
     jidNormalizedUser,
-    makeCacheableSignalKeyStore,
-    delay
+    makeCacheableSignalKeyStore
 } = require("@whiskeysockets/baileys")
 
 const { handleMessages, handleGroupParticipantUpdate, getPrompt, handleStatusUpdate, ScheduledMessages } = require('./main')
-const { smsg } = require('./lib/myfunc')
 const { loadCommands, watchCommands } = require('./src/lib/loader')
 
 const settings = require('./settings')
 const { startAutoClear } = require('./lib/myfunc2')
-
-let phoneNumber = "237621092130"
 global.currentClient = null
-
-
-const pairingCode = !!phoneNumber || process.argv.includes("--pairing-code")
 const useMobile = process.argv.includes("--mobile")
 
 const rl = process.stdin.isTTY ? readline.createInterface({ input: process.stdin, output: process.stdout }) : null
@@ -100,11 +86,8 @@ async function startTaycInc() {
     store.bind(TaycInc.ev)
     TaycInc.ev.on('connection.update', async (s) => {
         const { connection, lastDisconnect, qr } = s;
-        if (qr) {
-            console.log(chalk.bgGreen.whiteBright(`Your QR Code: ${qr}`));
-        }
         if (connection === 'open') {
-            global.currentClient = TaycInc; 
+            global.currentClient = TaycInc;
             const botNumber = TaycInc.user.id.split(':')[0] + '@s.whatsapp.net';
             await TaycInc.sendMessage(botNumber, {
                 text: `🤖 Bot Connected Successfully!\n\n⏰ Time: ${new Date().toLocaleString()}\n✅ Status: Online and Ready!`
@@ -164,10 +147,34 @@ async function startTaycInc() {
         }
     }
 
-    TaycInc.serializeM = (m) => smsg(TaycInc, m, store)
 
-    TaycInc.public = true
+    if (!XeonBotInc.authState.creds.registered) {
+        if (useMobile) throw new Error('Cannot use pairing code with mobile api')
 
+        let phoneNumber
+        phoneNumber = await question(chalk.bgBlack(chalk.greenBright(`Enter your phone number : `)))
+        // Clean the phone number - remove any non-digit characters
+        phoneNumber = phoneNumber.replace(/[^0-9]/g, '')
+
+        // Validate the phone number using awesome-phonenumber
+        const pn = require('awesome-phonenumber');
+        if (!pn('+' + phoneNumber).isValid()) {
+            console.log(chalk.red(chalk.underline.bgBlue("Enter your phoneNumber without (+):")));
+            process.exit(1);
+        }
+
+        setTimeout(async () => {
+            try {
+                let code = await XeonBotInc.requestPairingCode(phoneNumber)
+                code = code?.match(/.{1,4}/g)?.join("-") || code
+                console.log(chalk.black(chalk.bgGreen(`Your Pairing Code : `)), chalk.black(chalk.white(code)))
+                console.log(chalk.yellow(`\nPlease enter this code in your WhatsApp app:\n1. Open WhatsApp\n2. Go to Settings > Linked Devices\n3. Tap "Link a Device"\n4. Enter the code shown above`))
+            } catch (error) {
+                console.error('Error requesting pairing code:', error)
+                console.log(chalk.red('Failed to get pairing code. Please check your phone number and try again.'))
+            }
+        }, 3000)
+    }
     TaycInc.ev.on('creds.update', saveCreds)
 }
 
@@ -182,7 +189,7 @@ startTaycInc().catch(error => {
 setInterval(() => {
     if (global.currentClient?.user && global.currentClient?.ws?.socket?._readyState === 1) {
         ScheduledMessages(global.currentClient);
-    } 
+    }
 }, 30 * 1000);
 
 process.on('uncaughtException', (err) => {
