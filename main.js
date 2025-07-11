@@ -1,8 +1,12 @@
 require('./config.js');
 const { fetchBuffer, GETSETTINGS, isAdmin, smsg, GETPRIVACY, LOADSETTINGS, getFolderSizeInMB, sleep } = require('./lib/myfunc');
 const fs = require('fs');
-
+const os = require('os')
+const { execSync } = require('child_process');
 const path = require('path');
+const process = require('process')
+const { performance } = require('perf_hooks')
+const moment = require('moment-timezone')
 
 const { addWelcome, delWelcome, isWelcomeOn, addGoodbye, delGoodBye, isGoodByeOn } = require('./lib/index');
 const { downloadContentFromMessage } = require('@whiskeysockets/baileys');
@@ -84,7 +88,7 @@ function saveNewSetting(newSettings) {
 
 async function handleMessages(Tayc, messageUpdate) {
     try {
-        const settings = GETSETTINGS(); 
+        const settings = GETSETTINGS();
         const COMMANDS = getCommands();
         const prefix = settings.prefix;
         const sudoList = GETPRIVACY().sudo || [];
@@ -226,8 +230,6 @@ async function handleMessages(Tayc, messageUpdate) {
 
         // === Command handling ===
         if (m.body.startsWith(prefix)) {
-            console.log("command detected");
-
             const body = m.body.slice(prefix.length).trim();
             const commandName = body.split(' ')[0].toLowerCase();
             const args = body.split(' ').slice(1);
@@ -248,6 +250,7 @@ async function handleMessages(Tayc, messageUpdate) {
                 await reply("*Take Your own access to Take All You Can*")
                 return
             }
+            if (["menu", "restart", "update", "help"].includes(commandName)) return handleCommand(context)
 
             if (typeof matched.operate === 'function') {
                 try {
@@ -789,7 +792,105 @@ async function handleStatusUpdate(sock, update) {
         console.error('❌ Error in handleStatusUpdate:', error.message);
     }
 }
+// to execute command
+function run(cmd, cwd = process.cwd()) {
+    execSync(cmd, { stdio: 'inherit', cwd });
+}
 
+function loadCommandsGroupedByCategory() {
+    const commandsDir = path.join(__dirname, './src/cmd')
+    const categories = {}
+
+    fs.readdirSync(commandsDir).forEach(file => {
+        const category = path.basename(file, '.js')
+        const commands = require(path.join(commandsDir, file))
+
+        if (Array.isArray(commands)) {
+            categories[category] = commands
+        }
+    })
+
+    return categories
+}
+
+// handle cmd command
+async function handleCommand({ Tayc, react, reply, text:Text, command }) {
+    const CMDS = getCommands()
+    const settings = GETSETTINGS()
+    let prefix = settings.prefix
+    const allCommands = loadCommandsGroupedByCategory()
+    console.log(command);
+    
+    switch (command) {
+        case "update":
+            try {
+                run("node Tayc.js")
+            } catch (e) {
+                console.error("Error  while trying to update or restart the bot... " + e)
+                react("❌")
+                reply("*Can't update now.*\> Please try it manually")
+            }
+            break;
+        case "help":
+            let helpText = `┌─[*Commands help center* ]─┐\n`
+
+            for (const [category, commands] of Object.entries(allCommands)) {
+                for (const cmd of commands) {
+                    helpText += `│ *${prefix}${cmd[0]}* → ${cmd.length < 20 ? cmd.desc : cmd.desc.slice(0, 17) + "..."}\n`
+                }
+                helpText += `> *NB*: You can type ${prefix}help *<Command>* to get spécifique command help\n`
+                helpText += `╰───────[TAKE ALL YOU CAN]────────\n\n`
+            }
+
+            if (!Text) return reply(helpText)
+            const matched = CMDS.find(cmd =>
+                Array.isArray(cmd.command) ? cmd.command.includes(Text) : cmd.command === Text
+            );
+            if (!matched) return reply(`❌*${Text}* command non found!. Contact Warano here @237621092130 to apply for implementation of it`, ["237621092130@s.whatsapp.net"])
+            reply(`ℹ️ Here is *${Text}* usage details:\n- *COMMAND*:${Text}\n- *Equivalent(s)*:\n${matched.command.map(e => "> " + e).join("\n")}\n- *Description*:${matched?.desc||"No description for this command"}`)
+            break;
+
+        default:
+            reply("Menu loading...")
+            const start = performance.now()
+            const version = require("./package.json").version
+            const host = 'Panel'
+
+            moment.locale('fr') // langue française
+            const date = moment().tz('Africa/Douala').format('dddd D MMMM YYYY')
+            const time = moment().tz('Africa/Douala').format('HH:mm:ss')
+            const botName = global.botName || "Tayc"
+            const totalMem = os.totalmem() / 1024 / 1024 / 1024 // en Go
+            const usedMem = process.memoryUsage().heapUsed / 1024 / 1024 // en Mo
+            const end = performance.now()
+            const speed = (end - start).toFixed(2)
+            let text = `
+┌──────◇ ${botName} ◇┐
+│ *OWNER*   : *${Tayc.user.name}*
+│ *PREFIX*  : *[ ${settings.prefix} ]*
+│ *DATE*    : *${date}*
+│ *TIME*    : *${time}*
+│ *HOST*    : *${host}*
+│ *MODE*    : *${settings.mode}*
+│ *VERSION* : *${version}*
+│ *SPEED*   : *${speed} ms*
+│ *PLUGINS* : *${CMDS.length}*
+│ *USAGE*   : *${usedMem.toFixed(1)} MB of ${totalMem.toFixed(0)} GB*
+└────────────────────────
+\n\n`.trim()
+            text += "\n\n"
+            for (const [category, commands] of Object.entries(allCommands)) {
+                text += `╭───❍ *${category.toUpperCase()} COMMANDS*\n`
+                for (const cmd of commands) {
+                    text += `│ • ${cmd.command[0]} \n`
+                }
+                text += `╰──────────────\n\n`
+            }
+            text += `> © ${new Date().getFullYear()} Tayc Bot BY *Warano*. All rights reserved.`
+            await reply(text)
+            break;
+    }
+}
 
 
 // Scheduled message

@@ -2,6 +2,7 @@
   "settings": {
     "prefix": ".",
     "chatbot": "off",
+    "menustyle": "1",
     "autorecordtype": "off",
     "autoread": "off",
     "lang": "en",
