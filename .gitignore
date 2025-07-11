@@ -11,6 +11,7 @@ session/
 
 # Session files
 Session/
+test/
 
 # Environment variables
 .env

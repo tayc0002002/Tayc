@@ -1,5 +1,4 @@
-require('./config.js');
-const { fetchBuffer, GETSETTINGS, isAdmin, smsg, GETPRIVACY, LOADSETTINGS, getFolderSizeInMB, sleep } = require('./lib/myfunc');
+const { GETSETTINGS, smsg, GETPRIVACY, LOADSETTINGS, getFolderSizeInMB, sleep } = require('./lib/myfunc');
 const fs = require('fs');
 const os = require('os')
 const { execSync } = require('child_process');
@@ -10,16 +9,12 @@ const moment = require('moment-timezone')
 
 const { addWelcome, delWelcome, isWelcomeOn, addGoodbye, delGoodBye, isGoodByeOn } = require('./lib/index');
 const { downloadContentFromMessage } = require('@whiskeysockets/baileys');
-const { Antilink } = require('./lib/antilink');
-const { handleDemotionEvent } = require('./commands/demote');
-
 
 const TEMP_MEDIA_DIR = path.join(__dirname, './tmp');
 const { writeFile } = require('fs/promises');
 const logMessage = require('./src/lib/statique.js');
 const { getCommands } = require('./src/lib/loader.js');
 const chalk = require('chalk');
-const { handleChatbotResponse } = require('./commands/chatbot.js');
 const { handleBadwordDetection } = require('./lib/antibadword.js');
 const { FORWARDMESSAGE, estimateForwardTime, getForwardStatus, stopForwarding } = require('./src/lib/forwarder.js');
 
@@ -51,6 +46,17 @@ const cleanTempFolderIfLarge = () => {
 
 setInterval(cleanTempFolderIfLarge, 60 * 1000);
 
+// a terminer
+async function handleChatbotResponse() {
+    return true
+}
+async function handleDemotionEvent() {
+    return true
+}
+
+async function Antilink() {
+    return true
+}
 
 function loadAllChats() {
     try {
@@ -814,13 +820,13 @@ function loadCommandsGroupedByCategory() {
 }
 
 // handle cmd command
-async function handleCommand({ Tayc, react, reply, text:Text, command }) {
+async function handleCommand({ Tayc, react, reply, text: Text, command }) {
     const CMDS = getCommands()
     const settings = GETSETTINGS()
     let prefix = settings.prefix
     const allCommands = loadCommandsGroupedByCategory()
     console.log(command);
-    
+
     switch (command) {
         case "update":
             try {
@@ -847,7 +853,7 @@ async function handleCommand({ Tayc, react, reply, text:Text, command }) {
                 Array.isArray(cmd.command) ? cmd.command.includes(Text) : cmd.command === Text
             );
             if (!matched) return reply(`❌*${Text}* command non found!. Contact Warano here @237621092130 to apply for implementation of it`, ["237621092130@s.whatsapp.net"])
-            reply(`ℹ️ Here is *${Text}* usage details:\n- *COMMAND*:${Text}\n- *Equivalent(s)*:\n${matched.command.map(e => "> " + e).join("\n")}\n- *Description*:${matched?.desc||"No description for this command"}`)
+            reply(`ℹ️ Here is *${Text}* usage details:\n- *COMMAND*:${Text}\n- *Equivalent(s)*:\n${matched.command.map(e => "> " + e).join("\n")}\n- *Description*:${matched?.desc || "No description for this command"}`)
             break;
 
         default:
