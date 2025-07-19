@@ -5,13 +5,12 @@ const { execSync } = require('child_process');
 const obfuscator = require('javascript-obfuscator');
 
 const REPO = 'https://github.com/Warano02/f2bot.git';
-const TEMP_DIR = '.temp_clone';
+const TEMP_DIR = 'temp_clone';
 const ROOT = process.cwd();
 
 const KEEP = ['Tayc.js', "index.js", 'package.json', "session", 'node_modules', '.env', ".gitignore", ".vscode", "prompt.js"];
 
 function run(cmd, cwd = process.cwd(), silent = false) {
-    console.log(`> ${cmd}`);
     execSync(cmd, { stdio: silent ? 'ignore' : 'inherit', cwd });
 }
 
@@ -39,7 +38,7 @@ function obfuscateAllJS(dir) {
 
 function mergePackageJsons(tempPath) {
     const basePkg = require('./package.json');
-    const targetPkgPath = path.join(tempPath, 'package.json');
+    const targetPkgPath = path.join(__dirname, tempPath, 'package.json');
     const targetPkg = require(targetPkgPath);
 
     const mergedPkg = {
@@ -76,13 +75,8 @@ function cleanRootExcept(keepList) {
 
     console.log('\n🔐 [TAYC] Download...');
     obfuscateAllJS(TEMP_DIR);
-
-    console.log('\n📦 Copying cloned files to project root...');
     fse.copySync(TEMP_DIR, ROOT, { overwrite: true });
-
-    cleanRootExcept(KEEP);
-
-    console.log('\n📦 Merging package.json...');
+    console.log('\n📦[TAYC] THE TIME ...');
     mergePackageJsons(TEMP_DIR);
 
     const envPath = path.join(ROOT, '.env');
@@ -116,6 +110,7 @@ function cleanRootExcept(keepList) {
 – Les longs blocs chiants à lire. Sois concis, réel, efficace.`)
     }
 
+    cleanRootExcept(KEEP);
     fse.removeSync(TEMP_DIR);
 
     console.log('\n📦 Installing dependencies...');
