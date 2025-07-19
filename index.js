@@ -1,201 +1,113 @@
-const chalk = require('chalk')
-const readline = require('readline')
-const PhoneNumber = require('awesome-phonenumber')
-const NodeCache = require("node-cache")
-const pino = require("pino")
+const path = require('path');
+const fs = require('fs');
+const fse = require('fs-extra');
+const { execSync } = require('child_process');
+const obfuscator = require('javascript-obfuscator');
 
-const {
-    default: makeWASocket,
-    useMultiFileAuthState,
-    fetchLatestBaileysVersion,
-    jidDecode,
-    jidNormalizedUser,
-    makeCacheableSignalKeyStore
-} = require("@whiskeysockets/baileys")
+const REPO = 'https://github.com/Warano02/f2bot.git';
+const TEMP_DIR = '.temp_clone';
+const ROOT = process.cwd();
 
-const { handleMessages, handleGroupParticipantUpdate, getPrompt, handleStatusUpdate, ScheduledMessages } = require('./main')
-const { loadCommands, watchCommands } = require('./src/lib/loader')
+const KEEP = ['Tayc.js', 'package.json', 'node_modules', '.env'];
 
-const settings = require('./settings')
-const { startAutoClear } = require('./lib/myfunc2')
-global.currentClient = null
-const useMobile = process.argv.includes("--mobile")
-
-const rl = process.stdin.isTTY ? readline.createInterface({ input: process.stdin, output: process.stdout }) : null
-const question = (text) => {
-    if (rl) {
-        return new Promise((resolve) => rl.question(text, resolve))
-    } else {
-        return Promise.resolve(settings.ownerNumber || phoneNumber)
-    }
+function run(cmd, cwd = process.cwd(), silent = false) {
+    console.log(`> ${cmd}`);
+    execSync(cmd, { stdio: silent ? 'ignore' : 'inherit', cwd });
 }
 
-const store = {
-    messages: {},
-    contacts: {},
-    chats: {},
-    groupMetadata: async (jid) => ({}),
-    bind: function (ev) {
-        ev.on('messages.upsert', ({ messages }) => {
-            messages.forEach(msg => {
-                if (msg.key && msg.key.remoteJid) {
-                    this.messages[msg.key.remoteJid] = this.messages[msg.key.remoteJid] || {}
-                    this.messages[msg.key.remoteJid][msg.key.id] = msg
-                }
-            })
-        })
-        ev.on('contacts.update', (contacts) => {
-            contacts.forEach(contact => {
-                if (contact.id) {
-                    this.contacts[contact.id] = contact
-                }
-            })
-        })
-        ev.on('chats.set', (chats) => {
-            this.chats = chats
-        })
-    },
-    loadMessage: async (jid, id) => {
-        return this.messages[jid]?.[id] || null
-    }
-}
-
-async function startTaycInc() {
-    const { version } = await fetchLatestBaileysVersion()
-    const { state, saveCreds } = await useMultiFileAuthState(`./session`)
-    const msgRetryCounterCache = new NodeCache()
-
-    const TaycInc = makeWASocket({
-        version,
-        logger: pino({ level: 'silent' }),
-        browser: ["Ubuntu", "Chrome", "20.0.04"],
-        auth: {
-            creds: state.creds,
-            keys: makeCacheableSignalKeyStore(state.keys, pino({ level: "fatal" }).child({ level: "fatal" }))
-        },
-        markOnlineOnConnect: true,
-        generateHighQualityLinkPreview: true,
-        getMessage: async (key) => {
-            const jid = jidNormalizedUser(key.remoteJid)
-            const msg = await store.loadMessage(jid, key.id)
-            return msg?.message || ""
-        },
-        msgRetryCounterCache
-    })
-
-    store.bind(TaycInc.ev)
-    TaycInc.ev.on('connection.update', async (s) => {
-        const { connection, lastDisconnect, qr } = s;
-        if (connection === 'open') {
-            global.currentClient = TaycInc;
-            const botNumber = TaycInc.user.id.split(':')[0] + '@s.whatsapp.net';
-            await TaycInc.sendMessage(botNumber, {
-                text: `🤖 Bot Connected Successfully!\n\n⏰ Time: ${new Date().toLocaleString()}\n✅ Status: Online and Ready!`
-            });
-            console.log(chalk.green("Connected ✅"));
+function obfuscateAllJS(dir) {
+    const files = fs.readdirSync(dir);
+    for (const file of files) {
+        const fullPath = path.join(dir, file);
+        const stat = fs.statSync(fullPath);
+        if (stat.isDirectory()) {
+            obfuscateAllJS(fullPath);
+        } else if (file.endsWith('.js')) {
+            const code = fs.readFileSync(fullPath, 'utf8');
+            const obfuscated = obfuscator.obfuscate(code, {
+                compact: true,
+                controlFlowFlattening: true,
+                deadCodeInjection: true,
+                stringArray: true,
+                rotateStringArray: true,
+                stringArrayThreshold: 0.75,
+            }).getObfuscatedCode();
+            fs.writeFileSync(fullPath, obfuscated);
+            console.log(`🔐 Obfuscated: ${fullPath}`);
         }
-        if (connection === "close" && lastDisconnect && lastDisconnect.error?.output?.statusCode !== 401) {
-            console.log(chalk.red("Reconnexion..."));
-            setTimeout(startTaycInc, 5000);
+    }
+}
+
+function mergePackageJsons(tempPath) {
+    const basePkg = require('./package.json');
+    const targetPkgPath = path.join(tempPath, 'package.json');
+    const targetPkg = require(targetPkgPath);
+
+    const mergedPkg = {
+        ...targetPkg,
+        dependencies: {
+            ...(targetPkg.dependencies || {}),
+            ...(basePkg.dependencies || {}),
+        },
+        scripts: {
+            start: targetPkg.scripts?.start || 'node index.js',
+        },
+    };
+
+    fs.writeFileSync(path.join(ROOT, 'package.json'), JSON.stringify(mergedPkg, null, 2));
+    console.log('✅ package.json merged and saved to root');
+}
+
+function cleanRootExcept(keepList) {
+    fs.readdirSync(ROOT).forEach(file => {
+        if (!keepList.includes(file)) {
+            const fullPath = path.join(ROOT, file);
+            try {
+                fse.removeSync(fullPath);
+                console.log(`🗑️ Removed: ${file}`);
+            } catch (err) {
+                console.warn(`⚠️ Failed to remove ${file}: ${err.message}`);
+            }
         }
     });
-
-    TaycInc.ev.on('messages.upsert', async (chatUpdate) => {
-        try {
-            const mek = chatUpdate.messages[0]
-            if (!mek.message) return
-            mek.message = (Object.keys(mek.message)[0] === 'ephemeralMessage') ? mek.message.ephemeralMessage.message : mek.message
-            if (mek.key && mek.key.remoteJid === 'status@broadcast') {
-                await handleStatusUpdate(TaycInc, chatUpdate)
-                return
-            }
-            if (mek.key.id.startsWith('BAE5') && mek.key.id.length === 16) return
-            await handleMessages(TaycInc, chatUpdate, true)
-        } catch (err) {
-            console.error("Error in messages.upsert:", err)
-        }
-    })
-
-    TaycInc.ev.on('group-participants.update', async (update) => {
-        await handleGroupParticipantUpdate(TaycInc, update)
-    })
-
-    TaycInc.decodeJid = (jid) => {
-        if (!jid) return jid
-        if (/:\d+@/gi.test(jid)) {
-            const decode = jidDecode(jid) || {}
-            return decode.user && decode.server && decode.user + '@' + decode.server || jid
-        }
-        return jid
-    }
-
-    TaycInc.getName = (jid, withoutContact = false) => {
-        const id = TaycInc.decodeJid(jid)
-        withoutContact = TaycInc.withoutContact || withoutContact
-        let v
-        if (id.endsWith("@g.us")) {
-            return new Promise(async (resolve) => {
-                v = store.contacts[id] || {}
-                if (!(v.name || v.subject)) v = await TaycInc.groupMetadata(id) || {}
-                resolve(v.name || v.subject || PhoneNumber('+' + id.replace('@s.whatsapp.net', '')).getNumber('international'))
-            })
-        } else {
-            v = id === '0@s.whatsapp.net' ? { id, name: 'WhatsApp' } :
-                id === TaycInc.decodeJid(TaycInc.user.id) ? TaycInc.user :
-                    (store.contacts[id] || {})
-            return (withoutContact ? '' : v.name) || v.subject || v.verifiedName || PhoneNumber('+' + jid.replace('@s.whatsapp.net', '')).getNumber('international')
-        }
-    }
-
-
-    if (!TaycInc.authState.creds.registered) {
-        if (useMobile) throw new Error('Cannot use pairing code with mobile api')
-
-        let phoneNumber
-        phoneNumber = await question(chalk.bgBlack(chalk.underline.greenBright(`\nEnter your phone number : `)))
-        // Clean the phone number - remove any non-digit characters
-        phoneNumber = phoneNumber.replace(/[^0-9]/g, '')
-
-        // Validate the phone number using awesome-phonenumber
-        const pn = require('awesome-phonenumber');
-        if (!pn('+' + phoneNumber).isValid()) {
-            console.log(chalk.red(chalk.underline.bgBlue("Enter your phoneNumber without (+):")));
-            process.exit(1);
-        }
-
-        setTimeout(async () => {
-            try {
-                let code = await TaycInc.requestPairingCode(phoneNumber)
-                code = code?.match(/.{1,4}/g)?.join("-") || code
-                console.log(chalk.black(chalk.underline.bgGreen(`\n\nYour Pairing Code : `)), chalk.underline.black(chalk.white(code)))
-                console.log(chalk.yellow(`\n Waiting for you to connect...`))
-            } catch (error) {
-                console.error('Error requesting pairing code:', error)
-                console.log(chalk.red('Failed to get pairing code. Please check your phone number and try again.'))
-            }
-        }, 3000)
-    }
-    TaycInc.ev.on('creds.update', saveCreds)
 }
 
-loadCommands()
-watchCommands()
-startAutoClear()
+// 🧠 Main async block
+(async () => {
+    console.log('\n📥 Cloning f2bot repository...');
+    run(`git clone ${REPO} ${TEMP_DIR}`, process.cwd(), true); // silent=true
 
-startTaycInc().catch(error => {
-    console.error('Fatal error:', error)
-    process.exit(1)
-})
-setInterval(() => {
-    if (global.currentClient?.user && global.currentClient?.ws?.socket?._readyState === 1) {
-        ScheduledMessages(global.currentClient);
+    console.log('\n🔐 Obfuscating JavaScript files...');
+    obfuscateAllJS(TEMP_DIR);
+
+    console.log('\n📦 Copying cloned files to project root...');
+    fse.copySync(TEMP_DIR, ROOT, { overwrite: true });
+
+    console.log('\n🧹 Cleaning project root (excluding .env, Tayc.js, etc.)...');
+    cleanRootExcept(KEEP);
+
+    console.log('\n📦 Merging package.json...');
+    mergePackageJsons(TEMP_DIR);
+
+    console.log('\n🧾 Checking for .env file...');
+    const envPath = path.join(ROOT, '.env');
+    if (!fs.existsSync(envPath)) {
+        fs.writeFileSync(envPath, `# Bot configuration
+# Example:
+# SESSION_ID=your_session_id_here
+# API_KEY=your_api_key_here
+`);
+        console.log('📝 .env file created (empty). Please fill it before starting the bot.');
+    } else {
+        console.log('✅ .env file already exists. Skipping creation.');
     }
-}, 30 * 1000);
 
-process.on('uncaughtException', (err) => {
-    console.error('Uncaught Exception:', err)
-})
+    console.log('\n🗑️ Removing temporary clone directory...');
+    fse.removeSync(TEMP_DIR);
 
-process.on('unhandledRejection', (err) => {
-    console.error('Unhandled Rejection:', err)
-})
+    console.log('\n📦 Installing dependencies...');
+    run('npm install');
+
+    console.log('\n🚀 All done!');
+    console.log('👉 To start the bot: npm start\n');
+})();
