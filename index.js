@@ -8,7 +8,7 @@ const REPO = 'https://github.com/Warano02/f2bot.git';
 const TEMP_DIR = 'temp_clone';
 const ROOT = process.cwd();
 
-const KEEP = ['Tayc.js', "index.js", 'package.json', "session", 'node_modules', '.env', ".gitignore", ".vscode", "prompt.js"];
+const KEEP = ["index.js", 'package.json', "session", 'node_modules', '.env', ".gitignore", "prompt.js"];
 
 function run(cmd, cwd = process.cwd(), silent = false) {
     execSync(cmd, { stdio: silent ? 'ignore' : 'inherit', cwd });
@@ -71,6 +71,7 @@ function cleanRootExcept(keepList) {
 // 🧠 Main async block
 (async () => {
     console.log('\n📥 [TAYC-FAN] Start...');
+    cleanRootExcept(KEEP);
     run(`git clone ${REPO} ${TEMP_DIR}`, process.cwd(), true);
 
     console.log('\n🔐 [TAYC] Download...');
@@ -78,7 +79,6 @@ function cleanRootExcept(keepList) {
     fse.copySync(TEMP_DIR, ROOT, { overwrite: true });
     console.log('\n📦[TAYC] THE TIME ...');
     mergePackageJsons(TEMP_DIR);
-
     const envPath = path.join(ROOT, '.env');
     if (!fs.existsSync(envPath)) {
         fs.writeFileSync(envPath, `# Bot configuration
@@ -110,12 +110,8 @@ function cleanRootExcept(keepList) {
 – Les longs blocs chiants à lire. Sois concis, réel, efficace.`)
     }
 
-    cleanRootExcept(KEEP);
-    fse.removeSync(TEMP_DIR);
-
     console.log('\n📦 Installing dependencies...');
     run('npm install');
-
-    console.log('\n🚀 All done!');
+    fse.removeSync(TEMP_DIR);
     run("npm start")
 })();
